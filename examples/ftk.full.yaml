@@ -1,0 +1,132 @@
+# =========================================================================
+#  flutter-toolkit – full reference ftk.yaml.
+#  Every section is optional. The minimum working file is just `project.id`.
+#  Drop this next to your Flutter project's pubspec.yaml as `ftk.yaml`.
+# =========================================================================
+
+# ---- Identity -----------------------------------------------------------
+project:
+  id: my-flutter-app        # short id shown in the multi-project registry
+  name: My Flutter App      # human-readable title shown in the UI header
+
+# Locales the app supports. Used by `ftk translations` and by the UI's
+# translations checker. Keep in sync with assets/translations/<lang>.json.
+languages: [en, hu, ro]
+
+# ---- Paths --------------------------------------------------------------
+# Where the toolkit should look for source / translation / entry files.
+paths:
+  lib_dir: lib
+  translation_dir: assets/translations
+  keys_file: lib/helpers/constants/translation_keys.dart
+  entry_points: [lib/main.dart]
+  # Files copied from tool/web_<flavor>/ into web/ during a web build.
+  web_post_build_files:
+    - favicon.ico
+    - favicon.png
+    - firebase-messaging-sw.js
+    - index.html
+    - manifest.json
+    - other.js
+    - other.css
+    - other.png
+    - robots.txt
+    - other.json
+    - other.html
+    - other.yaml
+
+# ---- Build defaults -----------------------------------------------------
+build:
+  default_mode: release                # release | debug
+  no_obfuscate: false                  # set true to skip --obfuscate on Android
+  desktop_targets: [windows, macos, linux]
+
+# ---- Command toggles ----------------------------------------------------
+# Hide a command from the UI + CLI by setting it to false. A command is also
+# auto-hidden if its `integrations.<name>` section is missing.
+commands:
+  clean: true
+  build: true
+  info: true
+  analyze: true
+  test: true
+  unused: true
+  translations: true
+  icons: true
+  deploy: true
+  backup: true
+  sonar: true
+  run: true
+  notes: true
+  help: true
+
+# ---- Flavors ------------------------------------------------------------
+# Delete this whole section for a single-flavor app; the UI & CLI will
+# hide every flavor picker automatically.
+#
+# Per-flavor sources the toolkit expects:
+#   tool/icons/<display_name>.png          - master icon
+#   assets/img/<display_name>/splash.png   - splash source
+#   tool/web_<name>/                       - web post-build files
+#   ios/Runner/<ios_info_plist>            - per-flavor iOS plist
+#   ios/config/<ios_config_dir>/           - per-flavor iOS configs
+flavors:
+  - name: flavor_a                    # lowercase id – matches android/app/src/<name>
+    display_name: FlavorA             # capitalised name – matches tool/icons/<display_name>.png
+    ios_info_plist: Info-FlavorA.plist
+    ios_config_dir: flavorA           # folder under ios/config/
+    web_new_prefix: true              # URL becomes /newflavor_a/; set false for /flavor_a/
+    adaptive_bg: "#FFFFFF"
+    notification_color: "#1B5E20"
+  - name: flavor_b
+    display_name: FlavorB
+    ios_info_plist: Info-FlavorB.plist
+    ios_config_dir: flavorB
+    web_new_prefix: true
+    adaptive_bg: "#FFFFFF"
+    notification_color: "#0D47A1"
+
+default_flavor: flavor_a
+
+# ---- Integrations -------------------------------------------------------
+integrations:
+
+  # FastAPI + WebSocket web UI.
+  server:
+    host: 127.0.0.1
+    port: 8742
+    log_dir: tool/log                 # relative to project root
+    notes_file: tool/note.txt         # where the "Notes" tab stores text
+    auto_reload: false                # dev-only: uvicorn --reload
+
+  # `ftk sonar` integration. Omit to hide the Sonar tab.
+  sonar:
+    scanner_name: sonar-scanner       # or sonar-scanner.7.1.0.cmd on Windows
+    extra_args: []
+
+  # `ftk backup` integration. Omit to hide the Backup tab.
+  backup:
+    default_format: 7z                # zip | 7z | tar.gz | tar.bz2 | tar.xz | tar.zst | tar
+    password: ""                      # encrypted zip / 7z only
+    output_dir: ""                    # default: "<project>_backups" next to the project
+
+  # `ftk deploy` integration – one entry per flavor. Omit to hide Deploy.
+  deploy:
+    - flavor: flavor_a
+      host: example.com
+      user: deploy
+      password_env: DEPLOY_A_PW       # read from env; fallback to `password` below if empty
+      password: ""
+      remote_path: /var/www/flavora/
+      protocol: ftps                  # ftp | ftps | sftp
+      port: 21
+      backup_dir: /var/www/_backups   # optional: remote backup dir before upload
+      passive: true
+      skip_patterns: []               # optional: file patterns to skip
+    - flavor: flavor_b
+      host: example.com
+      user: deploy
+      password_env: DEPLOY_B_PW
+      remote_path: /var/www/flavorb/
+      protocol: sftp
+      port: 22

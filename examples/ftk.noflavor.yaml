@@ -1,0 +1,49 @@
+# Example ftk.yaml for a single-flavor (or no-flavor) Flutter app.
+# The key difference vs. ftk.full.yaml: the `flavors:` section is omitted
+# entirely. The UI hides every flavor picker automatically, and CLI
+# commands stop accepting --flavor.
+#
+# Flavor-dependent commands (icons, deploy) still work if you add a
+# one-entry `flavors:` block; to turn them off completely, set
+# `commands.icons: false` / `commands.deploy: false`.
+
+project:
+  id: my-flutter-app
+  name: My Flutter App
+
+languages: [en]
+
+paths:
+  lib_dir: lib
+  translation_dir: assets/translations
+  keys_file: lib/helpers/constants/translation_keys.dart
+  entry_points: [lib/main.dart]
+
+build:
+  default_mode: release
+  desktop_targets: [windows, macos, linux]
+
+commands:
+  clean: true
+  build: true
+  info: true
+  analyze: true
+  test: true
+  unused: true
+  translations: true
+  icons: false         # no flavors → disable
+  deploy: false        # no deploy targets → disable
+  backup: true
+  sonar: false
+  run: true
+  notes: true
+  help: true
+
+integrations:
+  server:
+    host: 127.0.0.1
+    port: 8742
+
+  backup:
+    default_format: zip
+    password: ""

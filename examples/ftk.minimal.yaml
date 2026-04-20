@@ -1,0 +1,23 @@
+# Smallest-possible ftk.yaml. Every section is optional; `project.id` is the
+# minimum you need for the project to register.
+project:
+  id: my-flutter-app
+  name: My Flutter App
+
+languages: [en]
+
+paths:
+  lib_dir: lib
+  translation_dir: assets/translations
+  keys_file: lib/helpers/constants/translation_keys.dart
+  entry_points: [lib/main.dart]
+
+build:
+  default_mode: release
+
+# Omit `flavors:` entirely on a single-flavor app – all flavor UI disappears.
+
+integrations:
+  server:
+    host: 127.0.0.1
+    port: 8742

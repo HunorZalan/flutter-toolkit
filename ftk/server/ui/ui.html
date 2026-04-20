@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+        <title>Flutter Toolkit</title>
+        <meta name="description" content="Flutter Toolkit - build, clean, diagnose and manage Flutter projects from a single web UI.">
+        <meta name="keywords" content="flutter, cross platform, toolkit, build, info, clean, icons, translations, diagnostics, helpers">
+        <meta name="author" content="NHZ">
+        <meta name="copyright" content="© 2026 NHZ">
+        <meta name="application-name" content="Flutter Toolkit">
+        <meta name="robots" content="noindex, nofollow, noarchive">
+        <meta name="referrer" content="no-referrer">
+        <meta name="google" content="notranslate">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta http-equiv="content-type" content="text/html;charset=UTF-8">
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+        <meta http-equiv="Pragma" content="no-cache">
+        <meta http-equiv="Expires" content="0">
+        <meta name="apple-touch-fullscreen" content="yes">
+        <link rel="icon" type="image/x-icon" href="favicon.ico" id="favicon"/>
+        <meta name="theme-color" content="#fafbfc" media="(prefers-color-scheme: light)">
+        <meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)">
+        <!-- Google Fonts does not provide SRI hashes; crossorigin ensures CORS compliance -->
+        <link rel="preload" as="style" crossorigin="anonymous" integrity="sha256-957j3vEE/E9LQnAHbnkmDy5PNHML/2z3u2wd7gdUAH4=" href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,100..900;1,100..900&display=swap?v=1.0.0" onload="this.onload=null;this.rel='stylesheet'">
+        <link rel="preload" as="style" href="/ui.css?v=1.0.0" onload="this.onload=null;this.rel='stylesheet'">
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "WebApplication",
+                "name": "Flutter Toolkit",
+                "description": "Build, clean, diagnose and manage Flutter projects from a single web UI.",
+                "applicationCategory": "DeveloperApplication",
+                "operatingSystem": "Web",
+                "author": {
+                    "@type": "Person",
+                    "name": "NHZ"
+                },
+                "offers": {
+                    "@type": "Offer",
+                    "price": "0"
+                }
+            }
+        </script>
+        <noscript>Flutter Toolkit – Flutter project management web UI. JavaScript required.</noscript>
+    </head>
+    <body id="app" class="app">
+        <nav class="sidebar" id="sidebar" role="navigation" aria-label="Toolkit navigation">
+            <button class="logo" id="logo" type="button" title="Back to home">
+                <svg class="logo-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect rx="4" width="20" height="20" fill="var(--accent)"/><text x="50%" y="72%" text-anchor="middle" fill="white" font-size="11" font-weight="bold" font-family="system-ui">FT</text></svg>
+                <span>Flutter Toolkit</span>
+            </button>
+            <div id="nav-commands" role="menu"></div>
+            <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" type="button" title="Collapse sidebar" aria-label="Toggle sidebar">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                    <path d="M9 3L5 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </nav>
+        <div class="main">
+            <header class="header" role="banner">
+                <div>
+                    <h1>Flutter Toolkit</h1>
+                    <div class="meta"><span class="dot off" id="ws-dot" aria-label="Connection status"></span><span id="meta-text">Connecting...</span></div>
+                </div>
+                <div id="header-buttons">
+                    <select id="project-switcher" class="project-switcher" title="Switch project" aria-label="Switch project" hidden></select>
+                    <button class="restart-btn" id="restart-btn" type="button" title="Restart server" aria-label="Restart server">
+                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                            <path d="M2 7.5A5.5 5.5 0 1 1 3.2 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                            <path d="M2 11.5V7.5H6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                    <button class="theme-btn" id="theme-btn" type="button" title="Toggle dark/light theme" aria-label="Toggle theme">
+                        <svg id="theme-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                            <g id="icon-sun">
+                                <circle cx="8" cy="8" r="3.5" stroke="currentColor" stroke-width="1.4"/>
+                                <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.42 1.42M11.53 11.53l1.42 1.42M3.05 12.95l1.42-1.42M11.53 4.47l1.42-1.42" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                            </g>
+                            <g id="icon-moon" hidden>
+                                <path d="M12 8.5A5 5 0 0 1 6 2.5a5.5 5.5 0 1 0 6 6z" fill="currentColor"/>
+                            </g>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+            <main class="content" role="main">
+                <section class="config" id="config" aria-label="Configuration">
+                    <div class="welcome" id="welcome">
+                        <h2>Welcome!</h2>
+                        <p>Select a tool from the sidebar to get started.</p>
+                        <span class="hint">All scripts also work from the command line.</span>
+                        <h3>Shortcuts list:</h3>
+                        <div class="shortcuts shortcuts-run">
+                            <span>Ctrl+Enter = Run</span>,
+                            <span>Ctrl+L = Clear</span>,
+                            <span>Esc = Stop</span>,
+                            <span>Ctrl+Z = Undo clear</span>;
+                        </div>
+                        <div class="shortcuts shortcuts-search">
+                            <span>Ctrl+F = Search output</span>,
+                            <span>Ctrl+Shift+F = Toggle output filter</span>,
+                            <span>Enter = Next match</span>,
+                            <span>Shift+Enter = Prev match</span>;
+                        </div>
+                        <div class="shortcuts shortcuts-filter">
+                            <span>Ctrl+B = Toggle sidebar</span>,
+                            <span>Ctrl+Shift+B = Toggle config panel</span>,
+                            <span>Ctrl+Alt+B = Toggle output panel</span>;
+                        </div>
+                        <div class="shortcuts shortcuts-note">
+                            <span>Ctrl+S = Save notes</span>,
+                            <span>Ctrl+Z = Undo notes</span>,
+                            <span>Ctrl+Shift+Z = Redo notes</span>;
+                        </div>
+                    </div>
+                </section>
+                <div class="controls" id="controls" aria-label="Run controls" data-hidden>
+                    <button class="btn btn-collapse-cfg" id="btn-collapse-cfg" type="button" title="Collapse config panel (Ctrl+Shift+B)" aria-label="Toggle config panel" aria-expanded="true">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                            <path d="M2 8l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-collapse-out" id="btn-collapse-out" type="button" title="Expand config / collapse output (Ctrl+Alt+B)" aria-label="Toggle output panel" aria-expanded="true" disabled>
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                    <div class="preview" id="preview" aria-live="polite"></div>
+                    <button class="btn btn-scroll-top" id="btn-scroll-top" type="button" title="Scroll to top" disabled>
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                            <path d="M7 12V2M4 5l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-scroll-bot" id="btn-scroll-bot" type="button" title="Scroll to bottom" disabled>
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                            <path d="M7 2v10M4 9l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-filter" id="btn-filter" type="button" title="Filter output by type" aria-label="Toggle output filter" disabled>
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                            <path d="M1 2h11L8 6.5V10l-3 1.5V6.5L1 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-search" id="btn-search" type="button" title="Search output (Ctrl+F)" aria-label="Search output" disabled>
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                            <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M9 9l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-copy" id="btn-copy" type="button" title="Copy all output to clipboard" aria-label="Copy output" disabled>
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                            <rect x="4" y="1" width="8" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                            <rect x="1" y="3" width="8" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="var(--bg2)"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-export" id="btn-export" type="button" title="Export output as .txt" disabled>
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                            <path d="M6.5 1v8M4 7l2.5 2.5L9 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M1.5 10v1.5h10V10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-undo" id="btn-undo" type="button" title="Undo last clear (Ctrl+Z)" disabled>
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                            <path d="M2 6a5 5 0 1 1 .5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            <path d="M2 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-clear" id="btn-clear" type="button" title="Clear output (Ctrl+L)" disabled>
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                            <path d="M2 3.5h9M4.5 3.5V2.5h4v1M5 6v4M8 6v4M3 3.5l.7 7h5.6l.7-7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-stop" id="btn-stop" type="button" title="Stop process (Esc)" disabled>
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                            <rect x="2.5" y="2.5" width="8" height="8" rx="1.5" fill="currentColor"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-autoclear" id="btn-autoclear" type="button" title="Auto-clear output before each run (off)">
+                        <svg id="autoclear-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                            <path d="M2 6.5A4.5 4.5 0 1 1 3 9.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                            <path d="M2 9.5V6.5H5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                    <button class="btn btn-sound" id="btn-sound" type="button" title="Sound ON (click to mute)">
+                        <svg id="sound-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                            <path d="M2 5h2l3-3v9l-3-3H2V5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+                            <g id="icon-sound-on">
+                                <path d="M9 4.5a3 3 0 0 1 0 4M10.5 3a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                            </g>
+                            <g id="icon-sound-off" hidden>
+                                <path d="M9.5 4.5l3 4M12.5 4.5l-3 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                            </g>
+                        </svg>
+                    </button>
+                    <button class="btn btn-run" id="btn-run" type="button" title="Run command (Ctrl+Enter)">
+                        <svg id="run-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                            <path d="M3 2l8 4.5L3 11V2z" fill="currentColor"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="statusbar" id="statusbar">
+                    <span id="sb-lines" class="sb-item"></span>
+                    <span id="sb-cmd" class="sb-item"></span>
+                    <span id="sb-result" class="sb-item"></span>
+                    <span id="sb-duration" class="sb-item"></span>
+                    <span id="sb-progress" class="sb-item"></span>
+                    <span class="sb-spacer"></span>
+                    <span id="sb-time" class="sb-item"></span>
+                </div>
+                <section class="output-wrap" aria-label="Command output">
+                    <div class="spinner" id="spinner" aria-label="Running..."></div>
+                    <div class="search-bar" id="search-bar" role="search" aria-label="Search output">
+                        <svg id="search-bar-search-svg" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M10 10l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                        <input type="text" id="search-input" placeholder="Search output…  Enter = next  ·  Shift+Enter = prev" autocomplete="off" spellcheck="false" aria-label="Search output">
+                        <span id="search-count" class="search-count" aria-live="polite"></span>
+                        <button type="button" id="search-prev" class="search-nav" title="Previous match (Shift+Enter)" aria-label="Previous match">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 9V3M3 6l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <button type="button" id="search-next" class="search-nav" title="Next match (Enter)" aria-label="Next match">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 3v6M3 6l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <button type="button" id="search-close" class="search-close" title="Close search (Esc)" aria-label="Close search">&#x2715;</button>
+                    </div>
+                    <div class="filter-bar hidden" id="filter-bar">
+                        <button type="button" class="filter-btn active" data-filter="all" title="Show all lines">All</button>
+                        <button type="button" class="filter-btn" data-filter="line-err" title="Show only errors">Errors</button>
+                        <button type="button" class="filter-btn" data-filter="line-warn" title="Show only warnings">Warnings</button>
+                        <button type="button" class="filter-btn" data-filter="line-ok" title="Show only success">OK</button>
+                        <button type="button" class="filter-btn" data-filter="line-cmd" title="Show only commands">Commands</button>
+                        <button type="button" class="filter-close" id="filter-close" title="Close filter (Ctrl+Shift+F)" aria-label="Close filter">&#x2715;</button>
+                    </div>
+                    <div class="output" id="output" role="log" aria-live="polite"></div>
+                </section>
+            </main>
+            <footer class="footer" role="contentinfo" title="Author: NHZ">
+                <span id="footer-copy"></span>
+            </footer>
+        </div>
+        <div class="modal-overlay" id="confirm-overlay" aria-hidden="true">
+            <dialog class="modal" id="confirm-dialog" aria-labelledby="confirm-title">
+                <h3 id="confirm-title">Confirm</h3>
+                <p id="confirm-msg"></p>
+                <div class="modal-preview" id="confirm-preview"></div>
+                <div class="modal-actions">
+                    <button class="btn btn-clear" id="confirm-cancel" type="button" title="Cancel (ESC)">Cancel (ESC)</button>
+                    <button class="btn btn-run" id="confirm-ok" type="button" title="Run (Enter)">Run (Enter)</button>
+                </div>
+            </dialog>
+        </div>
+        <svg hidden aria-hidden="true" id="icon-sprite">
+            <symbol id="icon-broom" viewBox="0 0 16 16" fill="none">
+                <path d="M11 1L5 7l-3 8h12L11 7V1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </symbol>
+            <symbol id="icon-hammer" viewBox="0 0 16 16" fill="none">
+                <path d="M9 7L3 13M6 4l4 4M8 2l6 6-2 2-6-6z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </symbol>
+            <symbol id="icon-chart" viewBox="0 0 16 16" fill="none">
+                <rect x="1" y="8" width="3" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="6.5" y="4" width="3" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="12" y="1" width="3" height="13" rx="1" stroke="currentColor" stroke-width="1.5"/>
+            </symbol>
+            <symbol id="icon-palette" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/>
+                <circle cx="6" cy="5" r="1.2" fill="currentColor"/>
+                <circle cx="10" cy="5" r="1.2" fill="currentColor"/>
+                <circle cx="5" cy="9" r="1.2" fill="currentColor"/>
+            </symbol>
+            <symbol id="icon-search" viewBox="0 0 16 16" fill="none">
+                <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </symbol>
+            <symbol id="icon-globe" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M1.5 8h13M8 1.5c-2 2-2 11 0 13M8 1.5c2 2 2 11 0 13" stroke="currentColor" stroke-width="1.2"/>
+            </symbol>
+            <symbol id="icon-help" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M6 6a2 2 0 114 0c0 1.5-2 1.5-2 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <circle cx="8" cy="12" r=".8" fill="currentColor"/>
+            </symbol>
+            <symbol id="icon-check" viewBox="0 0 16 16" fill="none">
+                <path d="M3 8l3 4 7-8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </symbol>
+            <symbol id="icon-shield" viewBox="0 0 16 16" fill="none">
+                <path d="M8 1L2 4v4c0 3.5 2.5 6.5 6 7.5 3.5-1 6-4 6-7.5V4L8 1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </symbol>
+            <symbol id="icon-upload" viewBox="0 0 16 16" fill="none">
+                <path d="M8 11V3M4 6l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 13h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </symbol>
+            <symbol id="icon-archive" viewBox="0 0 16 16" fill="none">
+                <rect x="1" y="1" width="14" height="4" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                <rect x="2" y="5" width="12" height="9" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M6 9h4M8 7v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </symbol>
+            <symbol id="icon-folder" viewBox="0 0 16 16">
+                <path d="M1.75 2A1.75 1.75 0 0 0 0 3.75v8.5C0 13.216.784 14 1.75 14h12.5A1.75 1.75 0 0 0 16 12.25v-7A1.75 1.75 0 0 0 14.25 3.5H7.5L6 2H1.75Z" fill="currentColor"/>
+            </symbol>
+            <symbol id="icon-file" viewBox="0 0 16 16">
+                <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237V14.25A1.75 1.75 0 0 1 13.25 16H3.75A1.75 1.75 0 0 1 2 14.25V1.75Zm8.5.75v2.5a.75.75 0 0 0 .75.75h2.5L10.5 2.5Z" fill="currentColor"/>
+            </symbol>
+            <symbol id="icon-edit" viewBox="0 0 16 16" fill="none">
+                <path d="M11 2l3 3-8 8H3v-3l8-8z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                <path d="M9 4l3 3" stroke="currentColor" stroke-width="1.5"/>
+            </symbol>
+            <symbol id="icon-save" viewBox="0 0 16 16" fill="none">
+                <path d="M2 3a1 1 0 0 1 1-1h8l3 3v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3z" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M5 2v3h6V2M5 15v-4h6v4" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+            </symbol>
+        </svg>
+        <template id="tpl-icon-run-idle">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                <path d="M3 2l8 4.5L3 11V2z" fill="currentColor"/>
+            </svg>
+        </template>
+        <template id="tpl-icon-run-spin">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.4" stroke-dasharray="8 4" class="spin-dash"/>
+            </svg>
+        </template>
+        <template id="tpl-cmd-btn">
+            <button class="cmd-btn" type="button" role="menuitem">
+                <span class="cmd-icon" aria-hidden="true"></span>
+                <span class="cmd-title"></span>
+                <span class="cmd-badge" hidden></span>
+            </button>
+        </template>
+        <template id="tpl-reset-row">
+            <div class="config-reset-row">
+                <button type="button" class="config-reset-btn" id="config-reset-btn" title="Reset all options to defaults">
+                    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+                        <path d="M1.5 5.5a4 4 0 1 1 .8 2.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        <path d="M1.5 8V5.5H4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>Reset defaults
+                </button>
+            </div>
+        </template>
+        <template id="tpl-master-actions">
+            <div class="master-actions">
+                <span class="master-label">All groups</span>
+                <button type="button" class="check-all-btn master-btn" title="Check all options in every group">✓ Check all</button>
+                <button type="button" class="uncheck-all-btn master-btn" title="Uncheck all options in every group">✗ Uncheck all</button>
+            </div>
+        </template>
+        <template id="tpl-presets-group">
+            <div class="group">
+                <div class="group-label">Quick presets</div>
+                <div class="presets"></div>
+            </div>
+        </template>
+        <template id="tpl-preset-btn">
+            <button type="button" class="preset-btn"></button>
+        </template>
+        <template id="tpl-group">
+            <div class="group">
+                <div class="group-header">
+                    <div class="group-label"></div>
+                </div>
+            </div>
+        </template>
+        <template id="tpl-group-actions">
+            <div class="group-actions">
+                <button type="button" class="check-all-btn" title="Check all options in this group">✓ All</button>
+                <button type="button" class="uncheck-all-btn" title="Uncheck all options in this group">✗ None</button>
+            </div>
+        </template>
+        <template id="tpl-opt-row">
+            <label class="opt-row">
+                <input type="checkbox">
+                <span class="label-text"></span>
+            </label>
+        </template>
+        <template id="tpl-flag-tip-btn">
+            <button type="button" class="flag-tip-btn" tabindex="0">?</button>
+        </template>
+        <script src="/ui.js?v=1.0.0" defer></script>
+    </body>
+</html>

@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flutter-toolkit"
+version = "1.0.0"
+description = "Standalone, configurable Flutter build / deploy / diagnostics toolkit with a FastAPI-powered web UI."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "NHZ" }]
+requires-python = ">=3.10"
+keywords = ["flutter", "build", "deploy", "toolkit", "fastapi", "flavors"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+]
+dependencies = [
+    "PyYAML>=6.0",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "psutil>=5.9",
+]
+
+[project.optional-dependencies]
+icons   = ["Pillow>=10.0"]
+backup  = ["pyzipper>=0.3.6", "py7zr>=0.21", "zstandard>=0.22"]
+deploy  = ["paramiko>=3.4"]
+all     = [
+    "Pillow>=10.0",
+    "pyzipper>=0.3.6",
+    "py7zr>=0.21",
+    "zstandard>=0.22",
+    "paramiko>=3.4",
+]
+dev     = ["pytest>=7", "ruff>=0.4"]
+
+[project.scripts]
+ftk = "ftk.cli:main"
+flutter-toolkit = "ftk.cli:main"
+
+[project.urls]
+
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["ftk*"]
+
+[tool.setuptools.package-data]
+ftk = [
+    "server/ui/*.html",
+    "server/ui/*.js",
+    "server/ui/*.css",
+    "server/ui/*.ico",
+    "server/ui/*.png",
+    "server/ui/*.svg",
+    "ftk.default.yaml",
+]

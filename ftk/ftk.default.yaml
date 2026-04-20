@@ -1,0 +1,39 @@
+# Default ftk configuration used when a project has no ftk.yaml.
+# Loaded by ftk.config.load_config as fallback defaults.
+project:
+  id: default
+  name: default
+
+languages: [en]
+
+paths:
+  lib_dir: lib
+  translation_dir: assets/translations
+  keys_file: lib/helpers/constants/translation_keys.dart
+  entry_points: [lib/main.dart]
+
+build:
+  default_mode: release
+  no_obfuscate: false
+  desktop_targets: [windows, macos, linux]
+
+commands:
+  clean: true
+  build: true
+  info: true
+  analyze: true
+  test: true
+  unused: true
+  translations: true
+  icons: true
+  deploy: false
+  backup: false
+  sonar: false
+  run: true
+  notes: true
+  help: true
+
+integrations:
+  server:
+    host: 127.0.0.1
+    port: 8742
