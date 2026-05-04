@@ -84,15 +84,30 @@ def _collect_files(project_root: str, excludes: set[str], out_path: Path) -> lis
     root = Path(project_root)
     try:
         out_resolved = out_path.resolve()
+        out_dir_resolved = out_path.parent.resolve()
     except OSError:
-        out_resolved = None
+        out_resolved = out_dir_resolved = None
+
     files: list[Path] = []
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in excludes]
+        dp = Path(dirpath)
+        if out_dir_resolved and dp.resolve() == out_dir_resolved:
+            dirnames.clear()
+            continue
+        dirnames[:] = [
+            d for d in dirnames
+            if d not in excludes
+        ]
         for fn in filenames:
-            p = Path(dirpath) / fn
-            if not _should_skip_file(p, root, dirpath, excludes, out_resolved):
-                files.append(p)
+            p = dp / fn
+            if dirpath == str(root) and p.name in excludes:
+                continue
+            rel_parts = p.relative_to(root).parts
+            if len(rel_parts) == 1 and _BACKUP_RE.match(rel_parts[0]):
+                continue
+            if out_resolved and p == out_path:
+                continue
+            files.append(p)
     return files
 
 
@@ -114,6 +129,8 @@ def _rotate_backups(out_dir: Path, keep: int) -> int:
             warn(f"Could not delete {p.name}: {e}")
     return deleted
 
+def _arcname(f: Path, root: Path) -> str:
+    return str(Path(root.name) / f.relative_to(root))
 
 def _create_zip(out: Path, files: list[Path], root: Path, password: str) -> int:
     try:
@@ -130,7 +147,7 @@ def _create_zip(out: Path, files: list[Path], root: Path, password: str) -> int:
         if password:
             zf.setpassword(password.encode())
         for i, f in enumerate(files, 1):
-            zf.write(f, str(f.relative_to(root)))
+            zf.write(f, _arcname(f, root))
             total_raw += f.stat().st_size
             prog.update(i, total_raw, force=(i == n))
     print()
@@ -143,7 +160,7 @@ def _create_tar(out: Path, files: list[Path], root: Path, mode: str) -> int:
     prog = _Progress(n)
     with tarfile.open(out, mode) as tf:  # NOSONAR — write-only archive creation
         for i, f in enumerate(files, 1):
-            tf.add(f, arcname=str(f.relative_to(root)))
+            tf.add(f, arcname=_arcname(f, root))
             total_raw += f.stat().st_size
             prog.update(i, total_raw, force=(i == n))
     print()
@@ -164,7 +181,7 @@ def _create_7z(out: Path, files: list[Path], root: Path, password: str) -> int:
                             header_encryption=bool(password),
                             filters=[{"id": py7zr.FILTER_LZMA2, "preset": 1}]) as zf:
         for i, f in enumerate(files, 1):
-            zf.write(f, str(f.relative_to(root)))
+            zf.write(f, _arcname(f, root))
             total_raw += f.stat().st_size
             prog.update(i, total_raw, force=(i == n))
     print()
@@ -185,7 +202,7 @@ def _create_tar_zst(out: Path, files: list[Path], root: Path) -> int:
         with cctx.stream_writer(raw_f) as zst_f:
             with tarfile.open(fileobj=zst_f, mode="w|") as tf:  # NOSONAR — write-only archive creation
                 for i, f in enumerate(files, 1):
-                    tf.add(f, arcname=str(f.relative_to(root)))
+                    tf.add(f, arcname=_arcname(f, root))
                     total_raw += f.stat().st_size
                     prog.update(i, total_raw, force=(i == n))
     print()

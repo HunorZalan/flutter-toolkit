@@ -81,4 +81,4 @@ See `INSTALL.md` for the full install / config / uninstall walkthrough.
 
 ## License
 
-MIT – see `LICENSE`.
+MIT - see `LICENSE`.

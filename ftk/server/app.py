@@ -535,7 +535,7 @@ class _AppHandlers:
         ]
         return {"projects": items, "active": self._state.cfg.id}
 
-    def api_select_project(
+    async def api_select_project(
         self,
         body: Annotated[_ProjectSelect, Body(...)]
     ):
@@ -610,7 +610,7 @@ class _AppHandlers:
 
         return {"ok": True}
 
-    def api_restart(self) -> dict:
+    async def api_restart(self) -> dict:
         if self._state.active_client is not None:
             return {"ok": False, "reason": "A command is currently running."}
 

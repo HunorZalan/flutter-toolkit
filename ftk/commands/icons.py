@@ -252,7 +252,7 @@ def _gen_ios(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil_dra
         if not _should_write(dest, only_new):
             print(f"      ~ {spec.filename:<44} (skip)")
             continue
-        canvas = pil_image.new("RGBA", (px, px), TRANSPARENT)
+        canvas = pil_image.new("RGBA", (px, px), WHITE)
         thumb  = src.copy()
         thumb.thumbnail((px, px), pil_image.Resampling.LANCZOS)
         canvas.paste(thumb, ((px - thumb.width) // 2, (px - thumb.height) // 2), thumb)

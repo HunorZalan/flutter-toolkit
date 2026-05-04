@@ -6,15 +6,9 @@
 #      cd /path/to/my-flutter-app
 #      bash /path/to/flutter-toolkit/scripts/install.sh
 #
-#  Does, in one shot:
-#    1. pip install -e ".[all]"  (installs the `ftk` package + extras)
-#    2. Adds Python Scripts dir to your shell PATH (persistent)
-#    3. Registers the project at the cwd (if it has ftk.yaml)
-#    4. macOS  -> installs ~/Library/LaunchAgents/com.flutter-toolkit.server.plist
-#       Linux  -> installs ~/.config/systemd/user/flutter-toolkit.service
-#    5. Starts the service and opens http://localhost:8742
-#
-#  Run from a directory without ftk.yaml and only steps 1-2 run.
+#  If the service is already installed and you just added a new project,
+#  re-running this script will register the project and restart the service
+#  automatically — a full reinstall is NOT needed.
 # =========================================================================
 set -e
 
@@ -35,13 +29,54 @@ case "$OS" in
     *)       OS_KIND="other";;
 esac
 
+PLIST_LABEL="com.flutter-toolkit.server"
+PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_LABEL.plist"
+SYSTEMD_UNIT="$HOME/.config/systemd/user/flutter-toolkit.service"
+
 echo ""
 echo -e "${CYA}=== flutter-toolkit installer ($OS_KIND) ===${RST}"
 echo "Toolkit : $TOOLKIT_DIR"
 echo "Project : $PROJECT_DIR"
 echo ""
 
-# --- Detect Python -------------------------------------------------------
+# =========================================================================
+# launchctl helpers — Ventura+ (macOS 13+) requires bootstrap/bootout.
+# Falls back to the legacy load/unload on older systems.
+# =========================================================================
+_launchctl_load() {
+    local plist="$1" label="$2" uid
+    uid=$(id -u)
+    if launchctl bootstrap "gui/$uid" "$plist" 2>/dev/null; then
+        return 0
+    fi
+    launchctl load "$plist" 2>/dev/null || true
+}
+
+_launchctl_unload() {
+    local plist="$1" label="$2" uid
+    uid=$(id -u)
+    launchctl bootout "gui/$uid/$label" 2>/dev/null \
+        || launchctl unload "$plist" 2>/dev/null \
+        || true
+    # Kill any leftover process holding the port
+    if command -v lsof >/dev/null 2>&1; then
+        local pid
+        pid=$(lsof -ti :8742 2>/dev/null || true)
+        [ -n "$pid" ] && kill -9 $pid 2>/dev/null || true
+    fi
+}
+
+_service_installed() {
+    case "$OS_KIND" in
+    macos) [ -f "$PLIST_PATH" ];;
+    linux) systemctl --user is-enabled flutter-toolkit.service >/dev/null 2>&1;;
+    *) return 1;;
+    esac
+}
+
+# =========================================================================
+# Detect Python
+# =========================================================================
 PY=""
 for cand in python3 python; do
     if command -v "$cand" >/dev/null 2>&1; then
@@ -54,15 +89,47 @@ done
 if [ -z "$PY" ]; then
     echo -e "${RED}[ERROR]${RST} Python 3.10+ not found."
     echo "        macOS:   brew install python"
-    echo "        Debian:  sudo apt install python3 python3-pip python3-venv"
+    echo "        Debian:  sudo apt install python3 python3-pip"
     echo "        Fedora:  sudo dnf install python3 python3-pip"
     exit 1
 fi
+
+# =========================================================================
+# FAST PATH — service already installed, just add project + restart
+# =========================================================================
+if _service_installed; then
+    if [ -f "$PROJECT_DIR/ftk.yaml" ]; then
+        echo -e "${CYA}Service is already installed. Registering project and restarting...${RST}"
+        # Install package upgrade silently if needed
+        ( cd "$TOOLKIT_DIR" && $PY -m pip install -e ".[all]" --upgrade -q ) || true
+        $PY -m ftk projects add "$PROJECT_DIR" >/dev/null 2>&1 || true
+
+        case "$OS_KIND" in
+        macos)
+            _launchctl_unload "$PLIST_PATH" "$PLIST_LABEL"
+            sleep 1
+            _launchctl_load "$PLIST_PATH" "$PLIST_LABEL"
+            ;;
+        linux)
+            systemctl --user daemon-reload
+            systemctl --user restart flutter-toolkit.service
+            ;;
+        esac
+
+        echo -e "${GRN}Done. Project registered and service restarted.${RST}"
+        echo "URL : http://127.0.0.1:8742"
+        echo ""
+        exit 0
+    fi
+fi
+
+# =========================================================================
+# FULL INSTALL
+# =========================================================================
 echo -e "[1/5] $($PY --version 2>&1) at $(command -v $PY)"
 
 if ! $PY -m pip --version >/dev/null 2>&1; then
     echo -e "${RED}[ERROR]${RST} pip is not available for $PY."
-    echo "        Try:  $PY -m ensurepip --upgrade"
     exit 1
 fi
 
@@ -76,7 +143,7 @@ echo "[2/5] Installing flutter-toolkit (with all extras)..."
 $PY -m pip install --upgrade pip $PIP_ARGS --quiet 2>/dev/null || true
 ( cd "$TOOLKIT_DIR" && $PY -m pip install -e ".[all]" --upgrade $PIP_ARGS )
 
-# --- Add Scripts dir to PATH --------------------------------------------
+# ---- PATH ---------------------------------------------------------------
 if [ -n "$PIP_ARGS" ]; then
     SCRIPTS_DIR=$($PY -c "import site; print(site.USER_BASE + '/bin')")
 else
@@ -102,63 +169,51 @@ case ":$PATH:" in
                 added=1
             fi
         done
-        if [ $added -eq 0 ]; then
-            echo -e "      ${YEL}No shell rc file found.${RST} Add to your shell startup:"
-            echo "        export PATH=\"$SCRIPTS_DIR:\$PATH\""
-        fi
+        [ $added -eq 0 ] && echo -e "      ${YEL}No shell rc found.${RST} Add manually: export PATH=\"$SCRIPTS_DIR:\$PATH\""
         export PATH="$SCRIPTS_DIR:$PATH"
         ;;
 esac
 
-# --- Verify --------------------------------------------------------------
+# ---- Verify -------------------------------------------------------------
 echo "[4/5] Verifying ftk install..."
 $PY -m ftk --version
 
-# --- Detect Flutter project (cwd -> registry fallback) ------------------
+# ---- Detect project (cwd -> registry fallback) -------------------------
 if [ ! -f "$PROJECT_DIR/ftk.yaml" ]; then
-    echo -e "${YEL}[INFO]${RST}  No ftk.yaml in current directory. Checking registry..."
+    echo -e "${YEL}[INFO]${RST}  No ftk.yaml here. Checking registry..."
     FALLBACK=$($PY -c "
 from ftk.projects import get_last_project_id, find_project, list_projects
 import os
 ps = list_projects()
 fb = ps[0] if ps else None
 e = find_project(get_last_project_id() or '') or fb
-print(e.root if e and os.path.isdir(e.root) and os.path.isfile(os.path.join(e.root, 'ftk.yaml')) else '')
+print(e.root if e and os.path.isdir(e.root) and os.path.isfile(os.path.join(e.root,'ftk.yaml')) else '')
 " 2>/dev/null || echo "")
-    if [ -n "$FALLBACK" ]; then
-        PROJECT_DIR="$FALLBACK"
-        echo -e "        ${GRN}Found registered project: $PROJECT_DIR${RST}"
-    fi
+    [ -n "$FALLBACK" ] && PROJECT_DIR="$FALLBACK" && echo -e "      ${GRN}Found: $PROJECT_DIR${RST}"
 fi
 
 if [ ! -f "$PROJECT_DIR/ftk.yaml" ]; then
     echo ""
     echo -e "${YEL}=== Toolkit installed, no project autostart configured ===${RST}"
     echo ""
-    echo "To make the web UI auto-start on every login, open a NEW terminal,"
-    echo "cd into your Flutter project (the one with ftk.yaml) and re-run:"
+    echo "To enable autostart, cd into your Flutter project and re-run:"
+    echo "  cd /path/to/my-flutter-app && bash $SCRIPT_DIR/install.sh"
     echo ""
-    echo "  cd /path/to/my-flutter-app"
-    echo "  bash $SCRIPT_DIR/install.sh"
-    echo ""
-    echo "Or register the project first, then re-run from anywhere:"
-    echo ""
+    echo "Or register first, then re-run from anywhere:"
     echo "  ftk projects add /path/to/my-flutter-app"
     echo "  bash $SCRIPT_DIR/install.sh"
     echo ""
-    echo "Or just start the server manually:  ftk server"
-    echo ""
+    echo "Manual start: ftk server"
     exit 0
 fi
 
-# --- Install service ----------------------------------------------------
-echo "[5/5] Installing background service for project at $PROJECT_DIR..."
+# =========================================================================
+# Step 5 — install service
+# =========================================================================
+echo "[5/5] Installing background service for: $PROJECT_DIR"
 
-# Register project (no-op if already there)
 $PY -m ftk projects add "$PROJECT_DIR" >/dev/null 2>&1 || true
-
-# Resolve project id
-PROJECT_ID="$($PY -c "from ftk.config import load_config;print(load_config(r'''$PROJECT_DIR''').id)" 2>/dev/null || echo "")"
+PROJECT_ID="$($PY -c "from ftk.config import load_config; print(load_config(r'''$PROJECT_DIR''').id)" 2>/dev/null || echo "")"
 
 FTK_BIN="$SCRIPTS_DIR/ftk"
 if [ ! -x "$FTK_BIN" ]; then
@@ -166,25 +221,62 @@ if [ ! -x "$FTK_BIN" ]; then
     exit 1
 fi
 
+# Remove quarantine flag — prevents "undefined developer" warning on macOS
+if [ "$OS_KIND" = "macos" ] && command -v xattr >/dev/null 2>&1; then
+    xattr -dr com.apple.quarantine "$FTK_BIN" 2>/dev/null || true
+fi
+
 LOG_DIR="$PROJECT_DIR/.ftk"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/server.log"
 
-if [ "$PROJECT_ID" ]; then
-    SERVE_CMD="$FTK_BIN --project $PROJECT_ID server"
+# ---- Detect system language ---------------------------------------------
+if [ -n "${LANG:-}" ]; then
+    LAUNCH_LANG="$LANG"
+elif [ "$OS_KIND" = "macos" ] && command -v defaults >/dev/null 2>&1; then
+    SYS_LANG=$(defaults read NSGlobalDomain AppleLanguages 2>/dev/null \
+        | grep -o '"[a-z][a-z]' | head -1 | tr -d '"' || echo "en")
+    case "$SYS_LANG" in
+        hu) LAUNCH_LANG="hu_HU.UTF-8";;
+        ro) LAUNCH_LANG="ro_RO.UTF-8";;
+        de) LAUNCH_LANG="de_DE.UTF-8";;
+        fr) LAUNCH_LANG="fr_FR.UTF-8";;
+        es) LAUNCH_LANG="es_ES.UTF-8";;
+        it) LAUNCH_LANG="it_IT.UTF-8";;
+        pt) LAUNCH_LANG="pt_PT.UTF-8";;
+        nl) LAUNCH_LANG="nl_NL.UTF-8";;
+        pl) LAUNCH_LANG="pl_PL.UTF-8";;
+        ru) LAUNCH_LANG="ru_RU.UTF-8";;
+        cs) LAUNCH_LANG="cs_CZ.UTF-8";;
+        sk) LAUNCH_LANG="sk_SK.UTF-8";;
+        sv) LAUNCH_LANG="sv_SE.UTF-8";;
+        da) LAUNCH_LANG="da_DK.UTF-8";;
+        fi) LAUNCH_LANG="fi_FI.UTF-8";;
+        nb|no) LAUNCH_LANG="nb_NO.UTF-8";;
+        tr) LAUNCH_LANG="tr_TR.UTF-8";;
+        ja) LAUNCH_LANG="ja_JP.UTF-8";;
+        ko) LAUNCH_LANG="ko_KR.UTF-8";;
+        zh) LAUNCH_LANG="zh_CN.UTF-8";;
+        ar) LAUNCH_LANG="ar_SA.UTF-8";;
+        *)  LAUNCH_LANG="en_US.UTF-8";;
+    esac
 else
-    SERVE_CMD="$FTK_BIN server"
+    LAUNCH_LANG="en_US.UTF-8"
 fi
 
+LAUNCH_PATH="$PATH"
+LAUNCH_HOME="$HOME"
+
+# =========================================================================
+# macOS — LaunchAgent
+# =========================================================================
 case "$OS_KIND" in
 macos)
-    PLIST_LABEL="com.flutter-toolkit.server"
-    PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_LABEL.plist"
     mkdir -p "$HOME/Library/LaunchAgents"
 
-    # Build ProgramArguments tags
+    # Build ProgramArguments XML tags
     PA_TAGS="        <string>$FTK_BIN</string>"
-    if [ "$PROJECT_ID" ]; then
+    if [ -n "$PROJECT_ID" ]; then
         PA_TAGS="$PA_TAGS
         <string>--project</string>
         <string>$PROJECT_ID</string>"
@@ -192,19 +284,10 @@ macos)
     PA_TAGS="$PA_TAGS
         <string>server</string>"
 
-    # Capture current PATH so launchd can find Flutter, Python, Homebrew, etc.
-    # LaunchAgents run with a minimal environment; without this, ftk can't
-    # locate flutter/dart/pod and subprocess calls fail silently.
-    LAUNCH_PATH="$PATH"
-
-    # Also capture LANG/HOME so subprocesses behave identically to a shell
-    LAUNCH_LANG="${LANG:-en_US.UTF-8}"
-    LAUNCH_HOME="$HOME"
-
-    # Replace existing
+    # Unload existing agent before rewriting the plist
     if [ -f "$PLIST_PATH" ]; then
-        launchctl unload "$PLIST_PATH" 2>/dev/null || true
-        rm -f "$PLIST_PATH"
+        _launchctl_unload "$PLIST_PATH" "$PLIST_LABEL"
+        sleep 1
     fi
 
     cat > "$PLIST_PATH" <<EOF
@@ -228,25 +311,38 @@ $PA_TAGS
         <string>$LAUNCH_HOME</string>
         <key>LANG</key>
         <string>$LAUNCH_LANG</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
     </dict>
     <key>RunAtLoad</key><true/>
-    <key>KeepAlive</key><true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key><false/>
+        <key>Crashed</key><true/>
+    </dict>
+    <key>ThrottleInterval</key><integer>10</integer>
+    <key>ProcessType</key><string>Background</string>
     <key>StandardOutPath</key><string>$LOG_FILE</string>
     <key>StandardErrorPath</key><string>$LOG_FILE</string>
 </dict>
 </plist>
 EOF
-    launchctl load "$PLIST_PATH"
+
+    _launchctl_load "$PLIST_PATH" "$PLIST_LABEL"
     echo "      LaunchAgent : $PLIST_PATH"
     ;;
 
+# =========================================================================
+# Linux — systemd user unit
+# =========================================================================
 linux)
     UNIT_DIR="$HOME/.config/systemd/user"
-    UNIT_FILE="$UNIT_DIR/flutter-toolkit.service"
     mkdir -p "$UNIT_DIR"
 
-    EXEC_LINE="ExecStart=$SERVE_CMD"
-    cat > "$UNIT_FILE" <<EOF
+    SERVE_ARGS="server"
+    [ -n "$PROJECT_ID" ] && SERVE_ARGS="--project $PROJECT_ID server"
+
+    cat > "$SYSTEMD_UNIT" <<EOF
 [Unit]
 Description=flutter-toolkit web UI
 After=network.target
@@ -255,8 +351,9 @@ After=network.target
 Type=simple
 WorkingDirectory=$PROJECT_DIR
 Environment="PATH=$PATH"
-Environment="LANG=${LANG:-en_US.UTF-8}"
-$EXEC_LINE
+Environment="LANG=$LAUNCH_LANG"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=$FTK_BIN $SERVE_ARGS
 Restart=on-failure
 RestartSec=5
 StandardOutput=append:$LOG_FILE
@@ -267,21 +364,22 @@ WantedBy=default.target
 EOF
     systemctl --user daemon-reload
     systemctl --user enable --now flutter-toolkit.service
-    echo "      systemd unit : $UNIT_FILE"
+    echo "      systemd unit : $SYSTEMD_UNIT"
     ;;
 
 *)
     echo -e "${YEL}[WARN]${RST} OS '$OS' not supported for service install."
-    echo "      Start the server manually:  $SERVE_CMD"
+    [ -n "$PROJECT_ID" ] && echo "      Manual start: $FTK_BIN --project $PROJECT_ID server" \
+                         || echo "      Manual start: $FTK_BIN server"
     exit 0
     ;;
 esac
 
-# Wait up to ~10s for the server to come up
+# ---- Wait for server ----------------------------------------------------
 UP=1
 for _ in 1 2 3 4 5 6 7 8 9 10; do
     sleep 1
-    if curl -sf http://127.0.0.1:8742/api/health >/dev/null 2>&1; then UP=0; break; fi
+    curl -sf http://127.0.0.1:8742/api/health >/dev/null 2>&1 && UP=0 && break
 done
 
 echo ""
@@ -290,14 +388,11 @@ if [ "$UP" = "0" ]; then
     echo "URL       : http://127.0.0.1:8742"
     echo "Restart   : bash $SCRIPT_DIR/reset.sh"
     echo "Uninstall : bash $SCRIPT_DIR/uninstall.sh"
-    if [ "$OS_KIND" = "macos" ]; then
-        open http://127.0.0.1:8742 2>/dev/null || true
-    elif [ "$OS_KIND" = "linux" ]; then
-        xdg-open http://127.0.0.1:8742 2>/dev/null || true
-    fi
+    [ "$OS_KIND" = "macos" ] && open http://127.0.0.1:8742 2>/dev/null || true
+    [ "$OS_KIND" = "linux" ] && xdg-open http://127.0.0.1:8742 2>/dev/null || true
 else
     echo -e "${YEL}=== Done - service installed, give it a few seconds ===${RST}"
-    echo "URL       : http://127.0.0.1:8742"
-    echo "Logs      : $LOG_FILE"
+    echo "URL  : http://127.0.0.1:8742"
+    echo "Logs : $LOG_FILE"
 fi
 echo ""

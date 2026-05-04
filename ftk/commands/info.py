@@ -218,6 +218,15 @@ def _php_version() -> str:
     v = _win_cmd_fallback("php", ["--version"])
     if v:
         return v
+    if sys.platform == "darwin":
+        for path in (
+            "/Applications/XAMPP/xamppfiles/bin/php",
+            "/opt/homebrew/bin/php",
+        ):
+            if os.path.isfile(path):
+                v = _version_oneliner([path, "--version"])
+                if v:
+                    return v
     if sys.platform == "win32":
         for path in (
             r"C:\xampp\php\php.exe",
@@ -235,6 +244,16 @@ def _composer_version() -> str:
     v = _win_cmd_fallback("composer", ["--version"])
     if v:
         return v
+    if sys.platform == "darwin":
+        for path in (
+            os.path.expanduser("~/.composer/vendor/bin/composer"),
+            "/Applications/XAMPP/xamppfiles/bin/composer",
+            "/opt/homebrew/bin/composer",
+        ):
+            if os.path.isfile(path):
+                v = _version_oneliner([path, "--version"])
+                if v:
+                    return v
     if sys.platform == "win32":
         bat = os.path.join(os.environ.get("APPDATA", ""), "Composer",
                            "vendor", "bin", "composer.bat")
@@ -360,7 +379,14 @@ def _mysql_version() -> str:
 
 def _vscode_version() -> str:
     v = _win_cmd_fallback("code", ["--version"])
-    return v.splitlines()[0] if v else ""
+    if v:
+        return v.splitlines()[0]
+    if sys.platform == "darwin":
+        mac_code = "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
+        if os.path.isfile(mac_code):
+            v = _version_oneliner([mac_code, "--version"])
+            return v.splitlines()[0] if v else ""
+    return ""
 
 
 def _sonar_version() -> str:

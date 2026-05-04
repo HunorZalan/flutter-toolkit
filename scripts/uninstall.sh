@@ -4,6 +4,9 @@
 set -e
 cd "$(dirname "$0")/.."
 
+PLIST_LABEL="com.flutter-toolkit.server"
+PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_LABEL.plist"
+
 echo ""
 echo "=== flutter-toolkit uninstaller ==="
 echo ""
@@ -17,9 +20,11 @@ if [ -z "$PY" ]; then echo "[ERROR] Python not found."; exit 1; fi
 echo "[1/4] Stopping background service if present..."
 case "$(uname -s)" in
 Darwin*)
-    PLIST_PATH="$HOME/Library/LaunchAgents/com.flutter-toolkit.server.plist"
     if [ -f "$PLIST_PATH" ]; then
-        launchctl unload "$PLIST_PATH" 2>/dev/null || true
+        uid=$(id -u)
+        launchctl bootout "gui/$uid/$PLIST_LABEL" 2>/dev/null \
+            || launchctl unload "$PLIST_PATH" 2>/dev/null \
+            || true
         rm -f "$PLIST_PATH"
         echo "      LaunchAgent removed."
     fi
@@ -35,10 +40,11 @@ Linux*)
     fi
     ;;
 esac
-# Kill anything still listening on the default port
+
+# Kill anything still listening on the port
 if command -v lsof >/dev/null 2>&1; then
     pid=$(lsof -ti :8742 2>/dev/null || true)
-    if [ -n "$pid" ]; then kill -9 $pid 2>/dev/null || true; fi
+    [ -n "$pid" ] && kill -9 $pid 2>/dev/null || true
 fi
 
 echo "[2/4] Removing flutter-toolkit Python package..."

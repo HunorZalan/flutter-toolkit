@@ -3,18 +3,27 @@
 # Tries the OS-level service first; falls back to /api/restart over HTTP.
 set -e
 
-case "$(uname -s)" in
+OS="$(uname -s)"
+PLIST_LABEL="com.flutter-toolkit.server"
+PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_LABEL.plist"
+
+case "$OS" in
 Darwin*)
-    PLIST_PATH="$HOME/Library/LaunchAgents/com.flutter-toolkit.server.plist"
     if [ -f "$PLIST_PATH" ]; then
-        echo "Restarting LaunchAgent com.flutter-toolkit.server..."
-        launchctl unload "$PLIST_PATH" 2>/dev/null || true
+        uid=$(id -u)
+        echo "Restarting LaunchAgent $PLIST_LABEL..."
+        # Use bootout/bootstrap (Ventura+), fall back to unload/load
+        launchctl bootout "gui/$uid/$PLIST_LABEL" 2>/dev/null \
+            || launchctl unload "$PLIST_PATH" 2>/dev/null \
+            || true
+        # Kill any process still holding the port
         if command -v lsof >/dev/null 2>&1; then
             pid=$(lsof -ti :8742 2>/dev/null || true)
-            if [ -n "$pid" ]; then kill -9 $pid 2>/dev/null || true; fi
+            [ -n "$pid" ] && kill -9 $pid 2>/dev/null || true
         fi
         sleep 1
-        launchctl load "$PLIST_PATH"
+        launchctl bootstrap "gui/$uid" "$PLIST_PATH" 2>/dev/null \
+            || launchctl load "$PLIST_PATH"
         echo "Done."
         exit 0
     fi

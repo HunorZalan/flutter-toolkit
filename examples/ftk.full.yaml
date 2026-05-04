@@ -1,5 +1,5 @@
 # =========================================================================
-#  flutter-toolkit – full reference ftk.yaml.
+#  flutter-toolkit - full reference ftk.yaml.
 #  Every section is optional. The minimum working file is just `project.id`.
 #  Drop this next to your Flutter project's pubspec.yaml as `ftk.yaml`.
 # =========================================================================
@@ -71,8 +71,8 @@ commands:
 #   ios/Runner/<ios_info_plist>            - per-flavor iOS plist
 #   ios/config/<ios_config_dir>/           - per-flavor iOS configs
 flavors:
-  - name: flavor_a                    # lowercase id – matches android/app/src/<name>
-    display_name: FlavorA             # capitalised name – matches tool/icons/<display_name>.png
+  - name: flavor_a                    # lowercase id - matches android/app/src/<name>
+    display_name: FlavorA             # capitalised name - matches tool/icons/<display_name>.png
     ios_info_plist: Info-FlavorA.plist
     ios_config_dir: flavorA           # folder under ios/config/
     web_new_prefix: true              # URL becomes /newflavor_a/; set false for /flavor_a/
@@ -110,7 +110,7 @@ integrations:
     password: ""                      # encrypted zip / 7z only
     output_dir: ""                    # default: "<project>_backups" next to the project
 
-  # `ftk deploy` integration – one entry per flavor. Omit to hide Deploy.
+  # `ftk deploy` integration - one entry per flavor. Omit to hide Deploy.
   deploy:
     - flavor: flavor_a
       host: example.com

@@ -15,7 +15,7 @@ paths:
 build:
   default_mode: release
 
-# Omit `flavors:` entirely on a single-flavor app – all flavor UI disappears.
+# Omit `flavors:` entirely on a single-flavor app - all flavor UI disappears.
 
 integrations:
   server:

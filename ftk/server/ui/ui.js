@@ -128,7 +128,7 @@
         "--html": "Generate HTML coverage report from lcov.info (requires genhtml).",
         "--reporter expanded": "Detailed test output with individual test names.",
         "--reporter json": "JSON format test output for CI/CD parsing.",
-        "--analyze": "Run flutter analyze – static analysis on lib/.",
+        "--analyze": "Run flutter analyze - static analysis on lib/.",
         "--fatal-infos": "Treat info-level analysis issues as errors.",
         "--no-fatal-warnings": "Don't treat warnings as fatal in analysis.",
         "--fix": "Apply dart fix suggestions (modifies files!).",
@@ -145,11 +145,39 @@
         "--format tar.bz2": "TAR + BZip2. Slower than gzip, slightly better ratio.",
         "--format tar.xz": "TAR + XZ. Best compression ratio, but significantly slower.",
         "--format tar": "Plain TAR, no compression. Fastest, largest file.",
-        "--no-default-excludes": "Include build/, .dart_tool/ etc. in the archive. Much larger and slower - use only for true full snapshots.",
-        "--keep 3": "After backup, delete all but the 3 most recent backup files in the output directory.",
+        "--format 7z": "7-Zip archive with encrypted headers. Best security + good compression.",
+        "--format tar.zst": "TAR + Zstandard. Modern format: near-xz ratio at gz speed.",
+        "--no-default-excludes": "Include build/, .dart_tool/ etc. in the archive. Much larger and slower.",
+        "--keep 3": "After backup, keep only the 3 most recent backup files.",
         "--keep 5": "After backup, keep only the 5 most recent backups.",
         "--keep 10": "After backup, keep only the 10 most recent backups.",
         "--keep 20": "After backup, keep only the 20 most recent backups.",
+        "sonar": "Run SonarScanner from the project root using the configured scanner.",
+        "backup": "Show Backup usage.",
+        "test": "Show Test usage.",
+        "analyze": "Show Analyze & Format usage.",
+        "--derived-data": "Deletes Xcode DerivedData/Runner-* folders (macOS only).",
+        "--pub-outdated": "Runs `flutter pub outdated` - report only, no changes.",
+        "--pub-deps": "Runs `flutter pub deps` - shows full dependency tree.",
+        "--upgrade-dry-run": "Preview what pub upgrade would change without applying it.",
+        "--pub-offline": "Resolves packages from local cache only (--offline).",
+        "--pub-enforce-lockfile": "Requires pubspec.lock to match exactly. For CI/prod.",
+        "--no-precompile": "Skip precompiling packages during pub get.",
+        "--no-example": "Skip fetching example/ dependencies.",
+        "--pod-install": "Runs `pod install` in ios/ (and macos/ if present).",
+        "--pod-repo-update": "Runs `pod install --repo-update` - updates spec repos first.",
+        "--pod-clean-install": "Runs `pod install --clean-install` - ignores lockfile.",
+        "--pod-verbose": "Runs `pod install --verbose` - detailed CocoaPods output.",
+        "--pod-update": "Runs `pod update` - upgrades all pods to latest versions.",
+        "--pod-update-no-repo": "Runs `pod update --no-repo-update` - skips spec repo refresh.",
+        "--pod-deintegrate": "Runs `pod deintegrate` - removes CocoaPods from project.",
+        "--pod-cache-clean": "Runs `pod cache clean --all` - clears local pod cache.",
+        "--pod-repo-list": "Runs `pod repo list` - shows configured spec repositories.",
+        "--pod-env": "Runs `pod env` - shows CocoaPods environment info.",
+        "--open-xcode": "Opens ios/Runner.xcworkspace in Xcode after operations.",
+        "--mac-setup": "Configures Flutter PATH, Xcode, Rosetta, CocoaPods and opens workspaces.",
+        "--format 7z": "7-Zip archive with encrypted headers. Best security + good compression.",
+        "--format tar.zst": "TAR + Zstandard. Modern format: near-xz ratio at gz speed.",
     };
     footerEl.textContent = `\u00a9 ${new Date().getFullYear()} NHZ`;
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -964,6 +992,12 @@
     function renderConfigPanel(cmd, name) {
         if (cmd.type === "notes") { renderNotesPanel(cmd); return; }
         if (cmd.static) { renderStaticPanel(cmd); return; }
+        if (cmd.warning) {
+            const banner = document.createElement("div");
+            banner.className = "cmd-warning-banner";
+            banner.textContent = cmd.warning;
+            configEl.appendChild(banner);
+        }
         activeConfig = cmd;
         configEl.innerHTML = "";
         const h2 = document.createElement("h2");
@@ -1685,12 +1719,12 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ id })
                 })
-                .then(r => r.json())
-                .then(res => {
-                    if (res?.ok) { location.reload(); }
-                    else { appendLine(`\u26a0 Cannot switch: ${res?.reason || "error"}`, "line-warn"); }
-                })
-                .catch(() => { appendLine("\u26a0 Switch failed", "line-warn"); });
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res?.ok) { location.reload(); }
+                        else { appendLine(`\u26a0 Cannot switch: ${res?.reason || "error"}`, "line-warn"); }
+                    })
+                    .catch(() => { appendLine("\u26a0 Switch failed", "line-warn"); });
             });
         }).catch(() => { });
     }

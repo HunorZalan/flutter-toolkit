@@ -117,6 +117,7 @@ def _android_cmd(flutter_exe, build_type, flavor, mode, *, verbose, no_obfuscate
     cmd = [flutter_exe, "build", build_type, f"--{mode}", "-t", "lib/main.dart"]
     if flavor:
         cmd.extend(["--flavor", flavor.name])
+        cmd.append(f"--dart-define=FLAVOR={flavor.name}") 
     if mode == "release" and not no_obfuscate:
         sub = flavor.name if flavor else "default"
         symbols = os.path.join("build", "app", "outputs", "symbols", sub)
@@ -206,6 +207,7 @@ def _build_ios(flutter_exe, flavor, *, project_root, mode, dry_run, verbose):
     cmd = [flutter_exe, "build", "ios", f"--{mode}"]
     if flavor:
         cmd.extend(["--flavor", flavor.name])
+        cmd.append(f"--dart-define=FLAVOR={flavor.name}")
     cmd.append("--simulator" if mode == "debug" else "--no-codesign")
     if verbose:
         cmd.append("--verbose")
@@ -222,6 +224,7 @@ def _build_ipa(flutter_exe, flavor, *, project_root, dry_run, verbose, no_obfusc
     cmd = [flutter_exe, "build", "ipa", "--release", "--export-method", "app-store"]
     if flavor:
         cmd.extend(["--flavor", flavor.name])
+        cmd.append(f"--dart-define=FLAVOR={flavor.name}")
     if not no_obfuscate:
         sub = flavor.name if flavor else "default"
         symbols = os.path.join("build", "ios", "symbols", sub)
@@ -238,6 +241,7 @@ def _build_desktop(flutter_exe, dt, flavor, *, mode, project_root, dry_run, verb
     cmd = [flutter_exe, "build", dt, f"--{mode}", "-t", "lib/main.dart"]
     if flavor:
         cmd.extend(["--flavor", flavor.name])
+        cmd.append(f"--dart-define=FLAVOR={flavor.name}")
     if mode == "release" and not no_obfuscate:
         sub = flavor.name if flavor else "default"
         symbols = os.path.join("build", dt, "symbols", sub)

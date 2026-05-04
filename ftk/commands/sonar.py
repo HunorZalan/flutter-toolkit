@@ -5,22 +5,17 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-
 from ftk.common import C, header, ok, err, info, warn
 from ftk.config import ProjectConfig
 
-
 _DONE_MARKERS = ("EXECUTION SUCCESS", "EXECUTION FAILURE", "Total time:")
-
 
 def _find_scanner(cfg: ProjectConfig) -> Path | None:
     sonar_cfg = cfg.integrations.sonar
     name = sonar_cfg.scanner_name if sonar_cfg else "sonar-scanner"
 
-    # Build a list of candidate names.  The config may contain a
-    # Windows-specific name like "sonar-scanner.7.1.0.cmd".  On macOS /
-    # Linux we also try without the .cmd / .bat suffix and the plain
-    # "sonar-scanner" fallback.
+    # Build a list of candidate names.  The config may contain a Windows-specific name like "sonar-scanner.cmd".
+    # On macOS / Linux we also try without the .cmd / .bat suffix and the plain "sonar-scanner" fallback.
     candidates = [name]
     if sys.platform != "win32":
         for ext in (".cmd", ".bat"):
@@ -39,7 +34,6 @@ def _find_scanner(cfg: ProjectConfig) -> Path | None:
             return Path(on_path)
     return None
 
-
 def _clear_scanner_lock(project_root: str) -> None:
     lock_dir = Path(project_root) / ".scannerwork"
     if not lock_dir.exists():
@@ -54,7 +48,6 @@ def _clear_scanner_lock(project_root: str) -> None:
             info("Try manually: rmdir /s /q .scannerwork")
         else:
             info("Try manually: rm -rf .scannerwork")
-
 
 def run(cfg: ProjectConfig, argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="ftk sonar", description="Run sonar-scanner")

@@ -435,14 +435,14 @@ def _flutter_upgrade_section(flutter_exe, *, confirm_fn, run_fn, results):
         err(_NO_FLUTTER)
         results.append(False)
 
-# ── 1. Kill lépés ────────────────────────────────────────────
+# ── 1. Kill ────────────────────────────────────────────
 def _step_kill(args, flutter_exe, *, dry_run: bool, run_all: bool) -> None:
     if (run_all or args.kill) and not args.no_kill:
         kill_dart_flutter(dry_run=dry_run, force=args.kill)
         clear_flutter_lock(flutter_exe)
 
 
-# ── 2. Clean lépés ───────────────────────────────────────────
+# ── 2. Clean ───────────────────────────────────────────
 def _step_clean(args, cfg, project_root, flutter_exe, results, *,
                 dry_run: bool, run_fn, run_all: bool) -> None:
     if not (run_all or args.clean):
@@ -460,7 +460,7 @@ def _step_clean(args, cfg, project_root, flutter_exe, results, *,
             _remove(os.path.join(d, "Podfile.lock"), f"{sub}/Podfile.lock", dry_run=dry_run)
 
 
-# ── 3. Build-cache lépés ─────────────────────────────────────
+# ── 3. Build-cache ─────────────────────────────────────
 def _step_build_cache(args, project_root, results, *, dry_run: bool, run_all: bool) -> None:
     if not (run_all or args.build_cache):
         return
@@ -473,7 +473,7 @@ def _step_build_cache(args, project_root, results, *, dry_run: bool, run_all: bo
     results.append(True)
 
 
-# ── 4. Pub extra lépések (upgrade-dry-run / outdated / deps) ─
+# ── 4. Pub extra (upgrade-dry-run / outdated / deps) ─
 def _step_pub_extras(args, flutter_exe, pub_modifiers, results, *, run_fn) -> None:
     if args.upgrade_dry_run:
         header("flutter pub upgrade --dry-run")
@@ -487,7 +487,7 @@ def _step_pub_extras(args, flutter_exe, pub_modifiers, results, *, run_fn) -> No
         _flutter_or_skip(flutter_exe, ("pub", "deps"), results, run_fn)
 
 
-# ── 5. CocoaPods lépés ───────────────────────────────────────
+# ── 5. CocoaPods ───────────────────────────────────────
 def _step_cocoapods(args, project_root, cfg, results, *, dry_run: bool) -> None:
     _any_pod = any([args.pod_install, args.pod_repo_update, args.pod_clean_install,
                     args.pod_verbose, args.pod_update, args.pod_update_no_repo,
@@ -497,7 +497,7 @@ def _step_cocoapods(args, project_root, cfg, results, *, dry_run: bool) -> None:
         _cocoapods_section(args, project_root, cfg, dry_run=dry_run, results=results)
 
 
-# ── 6. Xcode megnyitása ──────────────────────────────────────
+# ── 6. Xcode ──────────────────────────────────────
 def _step_open_xcode(args, project_root, *, run_fn) -> None:
     if not args.open_xcode:
         return
@@ -512,7 +512,7 @@ def _step_open_xcode(args, project_root, *, run_fn) -> None:
         warn("ios/Runner.xcworkspace not found. Run `flutter pub get` first.")
 
 
-# ── 7. Összefoglaló ──────────────────────────────────────────
+# ── 7. Summary ──────────────────────────────────────────
 def _print_clean_summary(results: list[bool], *, dry_run: bool) -> int:
     header("Summary")
     failed = results.count(False)
@@ -527,7 +527,7 @@ def _print_clean_summary(results: list[bool], *, dry_run: bool) -> int:
     return 0 if (dry_run or failed == 0) else 1
 
 
-# ── 8. Fő diszpécser ─────────────────────────────────────────
+# ── 8. Chief Dispatcher ─────────────────────────────────────────
 def _dispatch_steps(args, cfg, flutter_exe, pub_modifiers, results, *,
                     run_all: bool, dry_run: bool, confirm_fn, run_fn) -> None:
     project_root = cfg.root
@@ -551,7 +551,7 @@ def _dispatch_steps(args, cfg, flutter_exe, pub_modifiers, results, *,
     if run_all or args.get:
         results.append(_pub_get_section(flutter_exe, project_root, cfg,
                                         pub_modifiers, dry_run=dry_run, run_fn=run_fn))
-    if run_all or args.upgrade:
+    if args.upgrade:
         _pub_upgrade_section(flutter_exe, pub_modifiers,
                              confirm_fn=confirm_fn, run_fn=run_fn, results=results)
 
@@ -565,7 +565,7 @@ def _dispatch_steps(args, cfg, flutter_exe, pub_modifiers, results, *,
     _step_open_xcode(args, project_root, run_fn=run_fn)
 
 
-# ── 9. run() – már csak bekötés és konfig ────────────────────
+# ── 9. run() - Just need to hook it up and configure it ────────────────────
 def run(cfg: ProjectConfig, argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="ftk clean", description="Flutter clean & reinstall")
     parser.add_argument("--yes", "-y", action="store_true")
@@ -619,8 +619,9 @@ def run(cfg: ProjectConfig, argv: list[str]) -> int:
 
     selective_flags = [
         args.kill, args.clean, args.build_cache, args.android, args.ios,
-        args.derived_data, args.get, args.upgrade, args.pub_cache,
-        args.flutter_upgrade, args.pub_outdated, args.pub_deps, args.upgrade_dry_run,
+        args.derived_data, args.get, args.pub_cache,
+        args.upgrade, args.flutter_upgrade,
+        args.pub_outdated, args.pub_deps, args.upgrade_dry_run,
         args.pod_install, args.pod_repo_update, args.pod_clean_install, args.pod_verbose,
         args.pod_update, args.pod_update_no_repo, args.pod_deintegrate,
         args.pod_cache_clean, args.pod_repo_list, args.pod_env, args.open_xcode,

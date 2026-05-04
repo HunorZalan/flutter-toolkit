@@ -152,14 +152,22 @@ def _clean(cfg: ProjectConfig) -> dict:
         ],
         "presets": [
             {"label": "Android only", "flags": ["--clean", "--build-cache", "--android", "--get", "--yes"],
-             "disabled": _platform_disabled(cfg, "android")},
+            "disabled": _platform_disabled(cfg, "android")},
             {"label": "iOS only", "flags": ["--clean", "--build-cache", "--ios", "--get", "--yes"],
-             "disabled": _platform_disabled(cfg, "ios")},
+            "disabled": _platform_disabled(cfg, "ios")},
             {"label": "iOS full", "flags": ["--clean", "--build-cache", "--ios", "--get",
-                                             "--pod-install", "--derived-data", "--yes"],
-             "disabled": _platform_disabled(cfg, "ios")},
-            {"label": "Quick", "flags": ["--clean", "--get", "--yes"]},
-            {"label": "Full reset", "flags": ["--yes"], "default": True},
+                                            "--pod-install", "--derived-data", "--yes"],
+            "disabled": _platform_disabled(cfg, "ios")},
+            {"label": "Quick",        "flags": ["--clean", "--get", "--yes"]},
+            {"label": "Full reset",     "flags": [
+                "--kill", "--clean", "--build-cache", "--android", "--ios",
+                "--get", "--pub-cache", "--yes",
+            ]},
+            {"label": "Full + Upgrade", "flags": [
+                "--kill", "--clean", "--build-cache", "--android", "--ios",
+                "--get", "--pub-cache", "--upgrade", "--flutter-upgrade", "--yes",
+            ], "default": True},
+            {"label": "Upgrade only",   "flags": ["--upgrade", "--flutter-upgrade", "--yes"],},
         ],
     }
 
@@ -385,6 +393,18 @@ def _test() -> dict:
 # ---- Deploy ----
 
 def _deploy(cfg: ProjectConfig) -> dict:
+    from pathlib import Path as _Path
+    build_root = _Path(cfg.root) / "build"
+    flavor_names = [f.name for f in cfg.flavors] if cfg.has_flavors else [None]
+    missing_builds = []
+    for fname in flavor_names:
+        candidates = []
+        if fname:
+            candidates.append(build_root / f"web_{fname}")
+        candidates.append(build_root / "web")
+        if not any((c / "index.html").exists() for c in candidates):
+            missing_builds.append(fname or "default")
+
     groups = []
     fg = _flavor_group(cfg)
     if fg:
@@ -399,7 +419,8 @@ def _deploy(cfg: ProjectConfig) -> dict:
             {"flag": "--dry-run",   "label": _DRY_RUN},
         ]},
     ])
-    return {
+
+    result = {
         "title": "Deploy", "icon": "upload",
         "description": "Upload web build to remote server.",
         "script": "deploy", "inject_flags": [],
@@ -409,18 +430,21 @@ def _deploy(cfg: ProjectConfig) -> dict:
         ],
         "disabled": not cfg.command_enabled("deploy"),
     }
+    if missing_builds:
+        result["warning"] = f"⚠ No web build for: {', '.join(missing_builds)} — run Build → Web first."
+    return result
 
 
 # ---- Run ----
 
 def _run_cmds(cfg: ProjectConfig) -> dict:
     _mobile: list[tuple[str, str, str]] = [
-        ("android", "Android \u00b7 Debug",   "flutter run --flavor {f} --debug"),
-        ("android", "Android \u00b7 Release", "flutter run --flavor {f} --release"),
-        ("android", "Android \u00b7 Profile", "flutter run --flavor {f} --profile"),
-        ("ios",     "iOS \u00b7 Debug",       "flutter run --flavor {f} --debug"),
-        ("ios",     "iOS \u00b7 Release",     "flutter run --flavor {f} --release"),
-        ("ios",     "iOS \u00b7 Profile",     "flutter run --flavor {f} --profile"),
+        ("android", "Android \u00b7 Debug",   "flutter run --flavor {f} --debug --dart-define=FLAVOR={f}"),
+        ("android", "Android \u00b7 Release", "flutter run --flavor {f} --release --dart-define=FLAVOR={f}"),
+        ("android", "Android \u00b7 Profile", "flutter run --flavor {f} --profile --dart-define=FLAVOR={f}"),
+        ("ios",     "iOS \u00b7 Debug",       "flutter run --flavor {f} --debug --dart-define=FLAVOR={f}"),
+        ("ios",     "iOS \u00b7 Release",     "flutter run --flavor {f} --release --dart-define=FLAVOR={f}"),
+        ("ios",     "iOS \u00b7 Profile",     "flutter run --flavor {f} --profile --dart-define=FLAVOR={f}"),
     ]
     cmds: list[dict] = []
     if cfg.has_flavors:
@@ -498,11 +522,16 @@ def _backup(cfg: ProjectConfig) -> dict:
 # ---- Sonar ----
 
 def _sonar(cfg: ProjectConfig) -> dict:
+    sonar_cfg = cfg.integrations.sonar if cfg.integrations else None
+    scanner_name = (sonar_cfg.scanner_name if sonar_cfg else "") or "sonar-scanner"
+    cmd_only = scanner_name.lower().endswith((".cmd", ".bat")) and not _IS_WIN
+
     return {
         "title": "Sonar Scanner", "icon": "search",
         "description": "Runs configured SonarScanner from the project root.",
         "script": "sonar", "groups": [],
-        "disabled": not cfg.command_enabled("sonar"),
+        "disabled": not cfg.command_enabled("sonar") or cmd_only,
+        "disabled_reason": "Scanner is Windows-only (.cmd)" if cmd_only else None,
     }
 
 
@@ -520,7 +549,7 @@ def _notes() -> dict:
 # ---- Help ----
 
 def _help(cfg: ProjectConfig) -> dict:
-    enabled_cmds = [k for k in COMMAND_ORDER if k not in ("notes", "help") and cfg.command_enabled(k)]
+    enabled_cmds = [k for k in COMMAND_ORDER if k not in ("notes", "help", "run")]
     return {
         "title": "Help & Usage", "icon": "help",
         "description": "Show command-line usage.",
