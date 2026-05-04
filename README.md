@@ -61,6 +61,7 @@ Omitting sections hides UI affordances:
 ftk projects add /path/to/app1 --id app1
 ftk projects add /path/to/app2 --id app2
 ftk projects list
+ftk projects remove myapp
 ftk --project app2 build --web
 ```
 
