@@ -36,3 +36,8 @@ Thumbs.db
 
 # Node (in case a project folder sneaks in)
 node_modules/
+
+# SonarQube
+sonar-scanner*/
+sonar-project.properties
+*.cmd
