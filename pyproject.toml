@@ -50,6 +50,10 @@ ftk = "ftk.cli:main"
 flutter-toolkit = "ftk.cli:main"
 
 [project.urls]
+Homepage = "https://github.com/HunorZalan/flutter-toolkit"
+Repository = "https://github.com/HunorZalan/flutter-toolkit"
+Issues = "https://github.com/HunorZalan/flutter-toolkit/issues"
+Changelog = "https://github.com/HunorZalan/flutter-toolkit/blob/main/CHANGELOG.md"
 
 
 [tool.setuptools]
