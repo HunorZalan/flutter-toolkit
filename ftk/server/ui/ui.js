@@ -178,6 +178,7 @@
         "--mac-setup": "Configures Flutter PATH, Xcode, Rosetta, CocoaPods and opens workspaces.",
         "--format 7z": "7-Zip archive with encrypted headers. Best security + good compression.",
         "--format tar.zst": "TAR + Zstandard. Modern format: near-xz ratio at gz speed.",
+        "--firebase": "Checks Firebase CLI login status and lists available projects.",
     };
     footerEl.textContent = `\u00a9 ${new Date().getFullYear()} NHZ`;
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

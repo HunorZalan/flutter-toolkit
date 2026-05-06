@@ -23,7 +23,7 @@ DEFAULT_ENV_CHECKS = {
     "Flutter", "Dart", "Python", "pip", "Git",
     "Java", "Kotlin", "Android SDK", "Gradle", "ADB",
     "Xcode", "CocoaPods", "Ruby",
-    "Node.js", "npm", "Firebase CLI", "FlutterFire CLI", "Chrome", "Cordova", "Grunt",
+    "Node.js", "npm", "Homebrew", "Firebase CLI", "FlutterFire CLI", "Chrome", "Cordova", "Grunt",
     "PHP", "Pillow",
     _ANDROID_STUDIO, "MySQL", "VS Code", "SonarScanner",
 }
@@ -458,6 +458,7 @@ def show_environment(enabled: set[str], flutter_exe: str | None, project_root: s
         ("CocoaPods", lambda: _version_oneliner(["pod", "--version"]) if sys.platform == "darwin" else None),
         ("Ruby", lambda: _version_oneliner(["ruby", "--version"]) if sys.platform == "darwin" else None),
         ("Node.js", lambda: _version_oneliner(["node", "--version"])),
+        ("Homebrew", lambda: _version_oneliner(["brew", "--version"]) if sys.platform == "darwin" else None),
         ("npm", lambda: _win_cmd_fallback("npm", ["--version"])),
         ("Firebase CLI", lambda: _win_cmd_fallback("firebase", ["--version"])),
         ("FlutterFire CLI", _flutterfire_version),
@@ -587,9 +588,50 @@ def _run_flutter_sections(flutter_exe, project_root, args, run_all):
         _flutter_section(flutter_exe, project_root,
                          "flutter doctor --android-licenses", ["doctor", "--android-licenses"])
 
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_RE.sub("", text)
+
+def _show_firebase_info(project_root: str) -> None:
+    header("Firebase")
+    import shutil as _shutil
+
+    firebase_exe = _shutil.which("firebase") or (
+        _shutil.which("firebase.cmd") if sys.platform == "win32" else None
+    )
+
+    if firebase_exe is None:
+        warn("Firebase CLI not found.")
+        info("Install: npm install -g firebase-tools")
+        return
+
+    run_cmd([firebase_exe, "--version"], cwd=project_root)
+
+    try:
+        r = subprocess.run(
+            [firebase_exe, "projects:list"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        warn(f"firebase projects:list failed: {exc}")
+        return
+
+    stdout = r.stdout or ""        # ← None-biztos
+
+    if r.returncode == 0:
+        ok("Logged in. Projects:")
+        for line in stdout.strip().splitlines()[:12]:
+            clean = _strip_ansi(line)
+            if clean.strip():
+                info(f"  {clean}")
+    else:
+        warn("Not logged in - run `firebase login`")
 
 def _run_basic_sections(run_all, args, flutter_exe, project_root, enabled):
-    """Run env, devices, emulators, sizes, disk sections."""
     if run_all or args.env:
         show_environment(enabled, flutter_exe, project_root)
     if run_all or args.devices:
@@ -600,6 +642,8 @@ def _run_basic_sections(run_all, args, flutter_exe, project_root, enabled):
         show_build_sizes(project_root)
     if run_all or args.disk:
         _show_disk(project_root)
+    if run_all or args.firebase:
+        _show_firebase_info(project_root)
 
 
 def run(cfg: ProjectConfig, argv: list[str]) -> int:
@@ -614,14 +658,15 @@ def run(cfg: ProjectConfig, argv: list[str]) -> int:
     parser.add_argument("--disk", action="store_true")
     parser.add_argument("--android-licenses", action="store_true")
     parser.add_argument("--config", action="store_true")
+    parser.add_argument("--firebase", action="store_true")
     parser.add_argument("--mac-setup", action="store_true",
                         help="Configure Flutter PATH, Xcode, Simulator, and open the Runner workspaces (macOS only)")
     args = parser.parse_args(argv)
 
     project_root = cfg.root
     run_all = not any([args.env, args.sizes, args.doctor, args.devices, args.emulators,
-                       args.deps is not None, args.outdated, args.disk, args.android_licenses,
-                       args.config, args.mac_setup])
+                    args.deps is not None, args.outdated, args.disk, args.android_licenses,
+                    args.config, args.firebase, args.mac_setup])
 
     print(f"\n{C.BOLD}{C.CYAN}{'=' * 60}{C.RESET}")
     print(f"{C.BOLD}{C.CYAN}  Flutter Info{C.RESET}")
@@ -728,15 +773,46 @@ def _run_mac_setup(flutter_exe: str | None, project_root: str,
     else:
         ok(f"CocoaPods found: {_shutil.which('pod')}")
 
-    # 5. flutter precache (active Apple platforms only)
+    # 5. Firebase CLI
+    if _shutil.which("firebase") is None:          # _shutil, nem shutil!
+        info("Firebase CLI not found - installing via brew...")
+        run_cmd(["brew", "install", "firebase-cli"],
+                cwd=project_root, label="brew install firebase-cli")
+    else:
+        ok(f"Firebase CLI found: {_shutil.which('firebase')}")
+
+    # 6. FlutterFire CLI
+    if _shutil.which("flutterfire") is None:       # _shutil, nem shutil!
+        info("FlutterFire CLI not found - activating...")
+        run_cmd(["dart", "pub", "global", "activate", "flutterfire_cli"],
+                cwd=project_root, label="dart pub global activate flutterfire_cli")
+    else:
+        ok(f"FlutterFire CLI found: {_shutil.which('flutterfire')}")
+
+    # 7. Firebase login check
+    header("Firebase")
+    _r = subprocess.run(["firebase", "projects:list"],
+                        capture_output=True, text=True, timeout=10)
+    if _r.returncode == 0:
+        ok("Firebase: already logged in")
+        for line in _r.stdout.strip().splitlines()[:6]:   # első pár projekt
+            info(f"  {line}")
+    else:
+        warn("Firebase: not logged in")
+        if os.isatty(0):
+            run_cmd(["firebase", "login"], cwd=project_root, label="firebase login")
+        else:
+            info("Run manually: firebase login")
+            
+    # 8. flutter precache (active Apple platforms only)
     _setup_precache(flutter_exe, project_root, cfg)
 
-    # 6. Available iOS simulators
+    # 9. Available iOS simulators
     header("Available iOS Simulators")
     run_cmd(["xcrun", "simctl", "list", "devices", "available"],
             cwd=project_root, label="xcrun simctl list devices available")
 
-    # 7. Base64-encoded FLAVOR strings (needed for Xcode build configs)
+    # 10. Base64-encoded FLAVOR strings (needed for Xcode build configs)
     if cfg.has_flavors:
         import base64
         header("Flavor base64 strings")
@@ -745,7 +821,7 @@ def _run_mac_setup(flutter_exe: str | None, project_root: str,
             encoded = base64.b64encode(raw.encode()).decode()
             ok(f"{raw:30s} -> {encoded}")
 
-    # 8. Open apps + workspaces
+    # 11. Open apps + workspaces
     _open_workspaces(project_root, cfg)
     ok("macOS setup complete.")
 
