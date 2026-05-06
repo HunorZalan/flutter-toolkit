@@ -253,8 +253,8 @@ def _info() -> dict:
                 {"flag": "--disk", "label": "Disk usage"},
                 {"flag": "--android-licenses", "label": "Accept Android SDK licenses"},
                 {"flag": "--config", "label": "Flutter config"},
-                {"flag": "--mac-setup", "label": "macOS setup (PATH + Xcode + workspaces)",
-                 "disabled": not _IS_MAC},
+                {"flag": "--firebase",         "label": "Firebase status & projects"},
+                {"flag": "--mac-setup", "label": "macOS setup (PATH + Xcode + workspaces)", "disabled": not _IS_MAC},
             ]},
         ],
     }
