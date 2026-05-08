@@ -8,7 +8,7 @@
 #
 #  If the service is already installed and you just added a new project,
 #  re-running this script will register the project and restart the service
-#  automatically — a full reinstall is NOT needed.
+#  automatically - a full reinstall is NOT needed.
 # =========================================================================
 set -e
 
@@ -40,7 +40,7 @@ echo "Project : $PROJECT_DIR"
 echo ""
 
 # =========================================================================
-# launchctl helpers — Ventura+ (macOS 13+) requires bootstrap/bootout.
+# launchctl helpers - Ventura+ (macOS 13+) requires bootstrap/bootout.
 # Falls back to the legacy load/unload on older systems.
 # =========================================================================
 _launchctl_load() {
@@ -95,7 +95,7 @@ if [ -z "$PY" ]; then
 fi
 
 # =========================================================================
-# FAST PATH — service already installed, just add project + restart
+# FAST PATH - service already installed, just add project + restart
 # =========================================================================
 if _service_installed; then
     if [ -f "$PROJECT_DIR/ftk.yaml" ]; then
@@ -208,7 +208,7 @@ if [ ! -f "$PROJECT_DIR/ftk.yaml" ]; then
 fi
 
 # =========================================================================
-# Step 5 — install service
+# Step 5 - install service
 # =========================================================================
 echo "[5/5] Installing background service for: $PROJECT_DIR"
 
@@ -221,7 +221,7 @@ if [ ! -x "$FTK_BIN" ]; then
     exit 1
 fi
 
-# Remove quarantine flag — prevents "undefined developer" warning on macOS
+# Remove quarantine flag - prevents "undefined developer" warning on macOS
 if [ "$OS_KIND" = "macos" ] && command -v xattr >/dev/null 2>&1; then
     xattr -dr com.apple.quarantine "$FTK_BIN" 2>/dev/null || true
 fi
@@ -268,7 +268,7 @@ LAUNCH_PATH="$PATH"
 LAUNCH_HOME="$HOME"
 
 # =========================================================================
-# macOS — LaunchAgent
+# macOS - LaunchAgent
 # =========================================================================
 case "$OS_KIND" in
 macos)
@@ -333,7 +333,7 @@ EOF
     ;;
 
 # =========================================================================
-# Linux — systemd user unit
+# Linux - systemd user unit
 # =========================================================================
 linux)
     UNIT_DIR="$HOME/.config/systemd/user"

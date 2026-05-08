@@ -28,6 +28,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "clean":        ("ftk.commands.clean",        "Clean Flutter caches, locks, and build artifacts"),
     "build":        ("ftk.commands.build",        "Build web / APK / AAB / iOS / IPA / desktop"),
     "info":         ("ftk.commands.info",         "Report Flutter/Dart/SDK environment and artefact sizes"),
+    "codegen":      ("ftk.commands.codegen",      "Run code generation tasks"),
     "analyze":      ("ftk.commands.analyze",      "flutter analyze + dart fix + dart format"),
     "test":         ("ftk.commands.test",         "flutter test with coverage & lcov HTML report"),
     "icons":        ("ftk.commands.icons",        "Generate icons / splash / favicons / notification icons"),

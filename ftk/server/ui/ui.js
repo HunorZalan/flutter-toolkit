@@ -179,6 +179,11 @@
         "--format 7z": "7-Zip archive with encrypted headers. Best security + good compression.",
         "--format tar.zst": "TAR + Zstandard. Modern format: near-xz ratio at gz speed.",
         "--firebase": "Checks Firebase CLI login status and lists available projects.",
+        "--build": "Runs `dart run build_runner build` once. Generates all annotated code (freezed, json_serializable, injectable, drift, etc.).",
+        "--watch": "Runs `dart run build_runner watch` - watches for file changes and re-generates continuously. Use the Stop button to exit.",
+        "--delete-conflicting": "Passes --delete-conflicting-outputs. Automatically resolves conflicts instead of asking interactively. Recommended for most cases.",
+        "--flutter-gen": "Runs flutter_gen to generate type-safe asset accessors. Use Assets.images.logo.image() instead of raw strings.",
+        "codegen": "Show Code Generation usage.",
     };
     footerEl.textContent = `\u00a9 ${new Date().getFullYear()} NHZ`;
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -1036,7 +1041,7 @@
             configEl.appendChild($("tpl-reset-row").content.cloneNode(true));
         }
         for (const el of configEl.querySelectorAll("input,select"))
-            el.addEventListener("change", () => { syncPreview(); syncPresetActive(cmd); syncBuildConstraints(); });
+            el.addEventListener("change", () => { syncPreview(); syncPresetActive(cmd); syncBuildConstraints(); syncBackupConstraints(); });
         for (const btn of configEl.querySelectorAll(".check-all-btn:not(.master-btn)"))
             btn.addEventListener("click", () => setGroupChecked(btn.dataset.gi, btn.dataset.cmd, true));
         for (const btn of configEl.querySelectorAll(".uncheck-all-btn:not(.master-btn)"))
@@ -1067,6 +1072,7 @@
                 btn.classList.add("active");
                 syncPreview();
                 syncBuildConstraints();
+                syncBackupConstraints();
             });
         }
         function _resetCheckboxGroup(grp) {
@@ -1102,6 +1108,7 @@
                 syncPreview();
                 syncPresetActive(activeConfig);
                 syncBuildConstraints();
+                syncBackupConstraints();
             });
         }
         attachTooltips();
@@ -1178,7 +1185,7 @@
     }
     function wireFolderEvents(groupEl) {
         groupEl.querySelectorAll("input").forEach(el =>
-            el.addEventListener("change", syncPreview));
+            el.addEventListener("change", () => { syncPreview(); syncBackupConstraints(); }));
         groupEl.querySelectorAll(".check-all-btn").forEach(btn =>
             btn.addEventListener("click", () =>
                 setGroupChecked(btn.dataset.gi, btn.dataset.cmd, true)));
@@ -1212,6 +1219,24 @@
         modeSelect.disabled = releaseOnly;
         modeSelect.title = releaseOnly ? "Web and IPA are always built in release mode" : "";
         modeSelect.closest(".group")?.classList.toggle("group-disabled", releaseOnly);
+    }
+    function syncBackupConstraints() {
+        if (activeCmd !== "backup") { return; }
+        const noDefaultCb = configEl.querySelector('input[data-flag="--no-default-excludes"]');
+        if (!noDefaultCb) { return; }
+        const noDefault = noDefaultCb.checked;
+        for (const cb of configEl.querySelectorAll('input[data-flag^="--exclude "]')) {
+            if (noDefault) {
+                _setDisabled(cb, true, "--no-default-excludes aktív — egyedi kizárások figyelmen kívül maradnak");
+            } else {
+                const wasDisabled = cb.disabled;
+                _setDisabled(cb, false, "");
+                if (wasDisabled) {
+                    const labelText = cb.closest(".opt-row")?.querySelector(".label-text")?.textContent ?? "";
+                    cb.checked = labelText.includes("(default excluded)");
+                }
+            }
+        }
     }
     function _setDisabled(cb, disabled, reason) {
         if (!cb) { return; }

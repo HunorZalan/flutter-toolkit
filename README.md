@@ -41,12 +41,12 @@ macOS LaunchAgent / Linux systemd-user) so the web UI is up at every login
 without touching a terminal.
 
 If you only want the toolkit without autostart, run the installer from any
-directory that has no `ftk.yaml` — it stops cleanly after `pip install`.
+directory that has no `ftk.yaml` - it stops cleanly after `pip install`.
 
 ## Configuration
 
 Each project has an `ftk.yaml` at its root. Every section is optional. See
-`examples/ftk.minimal.yaml` and `examples/ftk.full.yaml` — the full file
+`examples/ftk.minimal.yaml` and `examples/ftk.full.yaml` - the full file
 documents every section inline.
 
 Omitting sections hides UI affordances:
@@ -72,10 +72,10 @@ dropdown in the header.
 
 Everything automated lives in `scripts/`. Three lifecycles, one file each:
 
-- `install.*` — install package + (when run from a project) install OS
+- `install.*` - install package + (when run from a project) install OS
   service + start it + open browser.
-- `reset.*` — restart the OS service in place.
-- `uninstall.*` — remove OS service + kill listener + pip-uninstall +
+- `reset.*` - restart the OS service in place.
+- `uninstall.*` - remove OS service + kill listener + pip-uninstall +
   clean PATH + optionally wipe `~/.ftk`.
 
 See `INSTALL.md` for the full install / config / uninstall walkthrough.

@@ -19,7 +19,7 @@ from typing import Any
 from ftk.config import ProjectConfig
 
 COMMAND_ORDER = [
-    "clean", "build", "deploy", "backup", "info", "analyze",
+    "clean", "build", "deploy", "backup", "info", "analyze", "codegen",
     "icons", "unused", "translations", "test", "run", "sonar", "notes", "help",
 ]
 
@@ -287,6 +287,36 @@ def _analyze() -> dict:
             ]},
         ],
     }
+    
+# ---- Codegen ----
+
+def _codegen() -> dict:
+    return {
+        "title": "Code Generation", "icon": "hammer",
+        "description": (
+            "Run build_runner to generate Dart code. "
+            "flutter_gen_runner runs automatically if present in pubspec."
+        ),
+        "script": "codegen", "inject_flags": [],
+        "groups": [
+            {"label": "Action", "type": "checkboxes",
+             "hint": "No selection = build (default)",
+             "options": [
+                 {"flag": "--build", "label": "build (one-shot generation)"},
+                 {"flag": "--watch", "label": "watch (continuous, Stop to exit)"},
+                 {"flag": "--clean", "label": "clean cache, then build"},
+             ]},
+            {"label": "Options", "type": "checkboxes", "options": [
+                {"flag": "--dry-run", "label": "Dry run (preview only)"},
+            ]},
+        ],
+        "presets": [
+            {"label": "Build",   "flags": ["--build"], "default": True},
+            {"label": "Watch",   "flags": ["--watch"]},
+            {"label": "Clean + Build", "flags": ["--clean", "--build"]},
+        ],
+    }
+
 
 
 # ---- Icons ----
@@ -431,7 +461,7 @@ def _deploy(cfg: ProjectConfig) -> dict:
         "disabled": not cfg.command_enabled("deploy"),
     }
     if missing_builds:
-        result["warning"] = f"⚠ No web build for: {', '.join(missing_builds)} — run Build → Web first."
+        result["warning"] = f"⚠ No web build for: {', '.join(missing_builds)} - run Build → Web first."
     return result
 
 
@@ -506,7 +536,7 @@ def _backup(cfg: ProjectConfig) -> dict:
             {"label": "Options", "type": "checkboxes", "options": [
                 {"flag": "--yes",                 "label": "Auto-confirm", "default": True},
                 {"flag": "--dry-run",             "label": _DRY_RUN},
-                {"flag": "--no-default-excludes", "label": "Include build/.dart_tool"},
+                {"flag": "--no-default-excludes", "label": "Include everything (no default excludes)"},
             ]},
         ],
         "presets": [
@@ -587,6 +617,7 @@ def build(cfg: ProjectConfig) -> dict[str, Any]:
         "backup":       _backup(cfg),
         "info":         _info(),
         "analyze":      _analyze(),
+        "codegen":      _codegen(),
         "icons":        _icons(cfg),
         "unused":       _unused(),
         "translations": _translations(cfg),

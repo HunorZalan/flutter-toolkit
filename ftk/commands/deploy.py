@@ -52,7 +52,7 @@ class FtpDeployer(Deployer):
         else:
             warn("Plain FTP transmits credentials in clear text. "
                  "Consider switching to ftps or sftp in your deploy target config.")
-            self.ftp = FTP()  # NOSONAR — user warned above about cleartext
+            self.ftp = FTP()  # NOSONAR - user warned above about cleartext
             self.ftp.connect(self.t.host, port, timeout=CONNECT_TIMEOUT)
             self.ftp.login(self.t.user, pwd)
         self.ftp.set_pasv(self.t.passive)

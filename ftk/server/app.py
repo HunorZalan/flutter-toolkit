@@ -86,7 +86,7 @@ def _terminate_process_group(pgid: int) -> None:
     before invoking this helper.  The subprocess is started with
     ``start_new_session=True`` so it always owns a dedicated group.
     """
-    os.killpg(pgid, signal.SIGTERM)  # NOSONAR — pgid is verified != server PID by caller
+    os.killpg(pgid, signal.SIGTERM)  # NOSONAR - pgid is verified != server PID by caller
 
 
 def _kill_proc(proc) -> None:
