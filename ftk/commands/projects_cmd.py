@@ -36,7 +36,7 @@ def _create_windows_task(entry) -> bool:
     """Create and start the FlutterToolkitServer scheduled task. Returns True on success."""
     ftk = _ftk_exe()
     if not ftk:
-        err("Could not locate ftk.exe — run install.bat first.")
+        err("Could not locate ftk.exe - run install.bat first.")
         return False
 
     project_dir = entry.root
@@ -93,7 +93,7 @@ def _create_windows_task(entry) -> bool:
         pass
 
     if r.returncode != 0:
-        # Likely needs admin — try to elevate via PowerShell
+        # Likely needs admin - try to elevate via PowerShell
         warn("Task creation needs administrator privileges. Requesting elevation...")
         ps_cmd = (
             f"schtasks /Create /TN {task} /XML '{xml_path}' /F; "
@@ -124,14 +124,14 @@ def _maybe_restart_service(entry=None) -> None:
             capture_output=True,
         )
         if r.returncode == 0:
-            # Task exists — restart it
+            # Task exists - restart it
             subprocess.run(["schtasks", "/End", "/TN", "FlutterToolkitServer"], capture_output=True)
             time.sleep(1)
             subprocess.run(["schtasks", "/Run", "/TN", "FlutterToolkitServer"], capture_output=True)
             info("Service restarted with new project.")
         elif entry is not None:
-            # Task doesn't exist — create it now
-            info("Service not installed yet — creating scheduled task...")
+            # Task doesn't exist - create it now
+            info("Service not installed yet - creating scheduled task...")
             if _create_windows_task(entry):
                 ok("Service installed and started.")
                 info("URL: http://127.0.0.1:8742")

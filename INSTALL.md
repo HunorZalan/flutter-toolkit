@@ -1,21 +1,21 @@
 # Installing flutter-toolkit
 
 `flutter-toolkit` ships as a Python package (`ftk`) with a CLI and a web UI.
-One command installs everything — package, all optional extras, and `ftk` on
+One command installs everything - package, all optional extras, and `ftk` on
 your `PATH`.
 
 ---
 
 ## 1. Prerequisites
 
-- **Python 3.10+** — [python.org](https://www.python.org/downloads/) on Windows
+- **Python 3.10+** - [python.org](https://www.python.org/downloads/) on Windows
   (tick **Add python.exe to PATH**), `brew install python` on macOS,
   `sudo apt install python3 python3-pip` on Debian/Ubuntu.
-- **Flutter SDK** — only needed by `build`, `clean`, `test`, `info`.
+- **Flutter SDK** - only needed by `build`, `clean`, `test`, `info`.
 
 ---
 
-## 2. Install — one command, end-to-end
+## 2. Install - one command, end-to-end
 
 **Run the installer from your Flutter project directory**, not from the
 toolkit repo. That's the difference: it picks up the `ftk.yaml` at your
@@ -45,7 +45,7 @@ The installer does the following in one shot:
 
 If you only need the toolkit installed without autostart (e.g. you'll run
 `ftk server` manually), run the installer from any directory that has no
-`ftk.yaml` — it stops cleanly after step 4.
+`ftk.yaml` - it stops cleanly after step 4.
 
 After install, open a **NEW** terminal (so the updated `PATH` is active):
 
@@ -62,7 +62,7 @@ If `ftk` still isn't found, the module form works identically:
 ## 3. Adding a second project (no reinstall needed)
 
 If the service is already running and you want to add another Flutter project,
-you **do not need to reinstall** — just re-run the installer from the new
+you **do not need to reinstall** - just re-run the installer from the new
 project directory:
 
 ```bash
@@ -76,7 +76,7 @@ C:\path\to\flutter-toolkit\scripts\install.bat
 ```
 
 The installer detects that the service is already installed, registers the
-new project, and restarts the service — the full install is skipped.
+new project, and restarts the service - the full install is skipped.
 
 Alternatively, register the project via the CLI and restart manually:
 
@@ -138,7 +138,7 @@ Every section of `ftk.yaml` is optional. Sections you can add:
 
 If you ran the installer from a project directory, the server is already
 running in the background and `http://127.0.0.1:8742` opened automatically.
-It will keep running and re-launch at every login — no terminal required.
+It will keep running and re-launch at every login - no terminal required.
 
 To start it manually instead:
 
@@ -190,9 +190,9 @@ Short aliases: `b`=build, `c`=clean, `i`=info, `a`=analyze, `t`=translations,
 | `ftk: command not found` after install                 | Open a **new terminal** - `PATH` changes only apply to new shells    |
 | `ftk: command not found` after new terminal            | Run `python -m ftk` / `python3 -m ftk` (works identically)           |
 | `externally-managed-environment` on macOS/Linux        | `install.sh` handles it automatically with `--user --break-system-packages` |
-| macOS: service shows "undefined developer" in Login Items | Normal cosmetic warning — the binary is not Apple-signed. The service still works. The installer removes the quarantine flag (`xattr`) automatically. |
+| macOS: service shows "undefined developer" in Login Items | Normal cosmetic warning - the binary is not Apple-signed. The service still works. The installer removes the quarantine flag (`xattr`) automatically. |
 | macOS: service not starting after install              | Run `bash scripts/reset.sh`. If still broken, check `~/.ftk/server.log` |
-| macOS: LaunchAgent not loading on Ventura+             | Fixed in the current installer — uses `launchctl bootstrap` instead of the deprecated `launchctl load` |
+| macOS: LaunchAgent not loading on Ventura+             | Fixed in the current installer - uses `launchctl bootstrap` instead of the deprecated `launchctl load` |
 | `Command 'deploy' is disabled in ftk.yaml`             | Add an `integrations.deploy:` block, or set `commands.deploy: true`  |
 | Server port already in use                             | `ftk server --port 8743`, or run `scripts/reset.*`                    |
 | `Unknown project id: 'foo'`                            | `ftk projects add /path --id foo`                                     |

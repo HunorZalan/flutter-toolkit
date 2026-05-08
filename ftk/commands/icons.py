@@ -108,7 +108,7 @@ def _require_pil():
 
 
 # ---------------------------------------------------------------------------
-# Helpers (all take a live PIL module reference — never import at module top)
+# Helpers (all take a live PIL module reference - never import at module top)
 # ---------------------------------------------------------------------------
 
 def _p(root: str, *parts: str) -> str:

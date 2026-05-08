@@ -8,7 +8,7 @@ rem      C:\path\to\flutter-toolkit\scripts\install.bat
 rem
 rem  If the service is already installed and you just added a new project,
 rem  re-running this script registers the project and restarts the service
-rem  automatically — a full reinstall is NOT needed.
+rem  automatically - a full reinstall is NOT needed.
 rem
 rem  The window stays open at the end so you can read the output.
 rem =========================================================================
@@ -60,7 +60,7 @@ if defined PROJECT_DIR (
 echo.
 
 rem =========================================================================
-rem FAST PATH — scheduled task already exists + project found -> restart only
+rem FAST PATH - scheduled task already exists + project found -> restart only
 rem =========================================================================
 if defined PROJECT_DIR (
     schtasks /Query /TN "!TASK!" >nul 2>&1

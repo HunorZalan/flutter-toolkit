@@ -7,7 +7,7 @@
 #
 #  If the service is already installed and you just added a new project,
 #  re-running this script registers the project and restarts the service
-#  automatically — a full reinstall is NOT needed.
+#  automatically - a full reinstall is NOT needed.
 # =========================================================================
 $ErrorActionPreference = "Stop"
 
@@ -44,7 +44,7 @@ if (-not (Test-Path (Join-Path $ProjectDir "ftk.yaml"))) {
 }
 
 # =========================================================================
-# FAST PATH — task already exists + project found -> register + restart
+# FAST PATH - task already exists + project found -> register + restart
 # =========================================================================
 if (Test-Path (Join-Path $ProjectDir "ftk.yaml")) {
     $taskExists = $false

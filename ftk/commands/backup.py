@@ -158,7 +158,7 @@ def _create_tar(out: Path, files: list[Path], root: Path, mode: str) -> int:
     total_raw = 0
     n = len(files)
     prog = _Progress(n)
-    with tarfile.open(out, mode) as tf:  # NOSONAR — write-only archive creation
+    with tarfile.open(out, mode) as tf:  # NOSONAR - write-only archive creation
         for i, f in enumerate(files, 1):
             tf.add(f, arcname=_arcname(f, root))
             total_raw += f.stat().st_size
@@ -200,7 +200,7 @@ def _create_tar_zst(out: Path, files: list[Path], root: Path) -> int:
     cctx = zstandard.ZstdCompressor(level=3)
     with out.open("wb") as raw_f:
         with cctx.stream_writer(raw_f) as zst_f:
-            with tarfile.open(fileobj=zst_f, mode="w|") as tf:  # NOSONAR — write-only archive creation
+            with tarfile.open(fileobj=zst_f, mode="w|") as tf:  # NOSONAR - write-only archive creation
                 for i, f in enumerate(files, 1):
                     tf.add(f, arcname=_arcname(f, root))
                     total_raw += f.stat().st_size
