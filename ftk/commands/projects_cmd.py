@@ -51,7 +51,7 @@ def _create_windows_task(entry) -> bool:
         f.write('Dim shell\n')
         f.write('Set shell = CreateObject("WScript.Shell")\n')
         f.write(f'shell.CurrentDirectory = "{project_dir}"\n')
-        f.write(f'shell.Run "{run_arg}", 0, False\n')
+        f.write(f'shell.Run """{ftk}"" --project {project_id} server", 0, False\n')
 
     # Task XML
     xml = f"""<?xml version="1.0" encoding="UTF-16"?>

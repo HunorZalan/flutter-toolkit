@@ -124,7 +124,7 @@ if (-not (Test-Path $ftkExe)) {
 $ftkDir = Join-Path $ProjectDir ".ftk"
 if (-not (Test-Path $ftkDir)) { New-Item -ItemType Directory -Path $ftkDir | Out-Null }
 $wrapper = Join-Path $ftkDir "start_server_bg.vbs"
-$runArg = if ($projectId) { "`"$ftkExe`" --project $projectId server" } else { "`"$ftkExe`" server" }
+$runArg = if ($projectId) { "`"`"$ftkExe`"`" --project $projectId server" } else { "`"`"$ftkExe`"`" server" }
 @"
 Dim shell
 Set shell = CreateObject("WScript.Shell")
