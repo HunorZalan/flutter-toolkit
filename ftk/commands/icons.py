@@ -268,9 +268,15 @@ def _gen_android(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil
     info("mipmap icons:")
     for density in ANDROID_DENSITIES:
         out = os.path.join(base_dir, f"mipmap-{density.folder}")
-        _save_png(_make_launcher(pil_image, src, density.px),       os.path.join(out, "ic_launcher.png"),            only_new)
+        _save_png(_make_launcher(pil_image, src, density.px),        os.path.join(out, "ic_launcher.png"),            only_new)
         _save_png(_make_round(pil_image, pil_draw, src, density.px), os.path.join(out, "ic_launcher_round.png"),      only_new)
-        _save_png(_make_adaptive_fg(pil_image, src, density.px),    os.path.join(out, "ic_launcher_foreground.png"), only_new)
+        _save_png(_make_adaptive_fg(pil_image, src, density.px),     os.path.join(out, "ic_launcher_foreground.png"), only_new)
+    info("drawable icons:")
+    for density in ANDROID_DENSITIES:
+        out = os.path.join(base_dir, f"drawable-{density.folder}")
+        _save_png(_make_launcher(pil_image, src, density.px),        os.path.join(out, "ic_launcher.png"),            only_new)
+        _save_png(_make_round(pil_image, pil_draw, src, density.px), os.path.join(out, "ic_launcher_round.png"),      only_new)
+        _save_png(_make_adaptive_fg(pil_image, src, density.px),     os.path.join(out, "ic_launcher_foreground.png"), only_new)
     info("drawable notification icons:")
     for density, px in NOTIFICATION_SIZES.items():
         out = os.path.join(base_dir, f"drawable-{density}")
@@ -332,6 +338,23 @@ def _gen_web(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil_dra
     else:
         print(f"      ~ {name:<44} (skip)")
     info(f"-> {count} web icons in {out_dir}")
+
+    info("favicon:")
+    favicon_dir = os.path.dirname(out_dir)
+    favicon_png = os.path.join(favicon_dir, "favicon.png")
+    _save_png(src.resize((32, 32), pil_image.Resampling.LANCZOS), favicon_png, only_new)
+    favicon_ico = os.path.join(favicon_dir, "favicon.ico")
+    if _should_write(favicon_ico, only_new):
+        frames = [src.resize((s, s), pil_image.Resampling.LANCZOS) for s in [16, 32, 48]]
+        frames[0].save(
+            favicon_ico, format="ICO",
+            sizes=[(s, s) for s in [16, 32, 48]],
+            append_images=frames[1:],
+        )
+        kb = os.path.getsize(favicon_ico) / 1024
+        print(f"      + {'favicon.ico':<44} ({kb:6.1f} KB)")
+    else:
+        print(f"      ~ {'favicon.ico':<44} (skip)")
 
 
 def _gen_windows(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil_draw) -> None:
@@ -443,7 +466,13 @@ def _verify_web(root: str, flavor: FlavorConfig) -> bool:
     print(f"    [{'OK' if not missing else 'FAIL'}] Web: {len(found)}/{len(expected)} PNG files")
     for f in sorted(missing):
         print(f"         Missing: {f}")
-    return not missing
+    ok = not missing
+    favicon_dir = os.path.dirname(out)
+    for name in ("favicon.png", "favicon.ico"):
+        exists = os.path.exists(os.path.join(favicon_dir, name))
+        print(f"    [{'OK' if exists else 'FAIL'}] {name}")
+        ok = ok and exists
+    return ok
 
 
 def _verify_windows(root: str, flavor: FlavorConfig) -> bool:

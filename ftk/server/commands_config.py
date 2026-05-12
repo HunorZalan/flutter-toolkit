@@ -329,7 +329,7 @@ def _icons(cfg: ProjectConfig) -> dict:
 
     def popt(flag: str, label: str, platform: str) -> dict:
         return {"flag": flag, "label": label,
-                "disabled": _platform_disabled(cfg, platform)}
+                "disabled": not cfg.platform_enabled(platform)}
 
     groups.extend([
         {"label": "Platform", "type": "checkboxes", "hint": "No selection = ios/android/web", "options": [
