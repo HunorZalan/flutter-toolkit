@@ -277,24 +277,26 @@ def _clean_android(project_root, *, dry_run, confirm_fn, run_fn):
         warn("android/ folder not found - skipping.")
         return True
     gradlew = _gradlew_path(android_dir)
+    gradle_success = True
     if gradlew is None:
-        warn("gradlew not found in android/ - skipping.")
-        return True
-    if not _IS_WIN:
-        try:
-            fmode = os.stat(gradlew).st_mode
-            os.chmod(gradlew, fmode | stat.S_IXUSR)
-        except OSError:
-            pass
-    # Stop daemons BEFORE clean
-    _stop_gradle_daemon(android_dir, gradlew, dry_run=dry_run)
-    # Use --no-daemon to avoid spawning a new daemon during clean
-    success = run_fn([gradlew, "clean", "--no-daemon"], cwd=android_dir, label="gradlew clean")
-    # Stop any daemon that may have been started anyway
-    _stop_gradle_daemon(android_dir, gradlew, dry_run=dry_run)
-    _remove(os.path.join(project_root, "android", ".gradle"), "android/.gradle", dry_run=dry_run)
+        warn("gradlew not found - skipping gradlew clean.")
+    else:
+        if not _IS_WIN:
+            try:
+                os.chmod(gradlew, os.stat(gradlew).st_mode | stat.S_IXUSR)
+            except OSError:
+                pass
+        _stop_gradle_daemon(android_dir, gradlew, dry_run=dry_run)
+        gradle_success = run_fn(
+            [gradlew, "clean", "--no-daemon"], cwd=android_dir, label="gradlew clean"
+        )
+        _stop_gradle_daemon(android_dir, gradlew, dry_run=dry_run)
+    _remove(os.path.join(android_dir, ".gradle"),        "android/.gradle",      dry_run=dry_run)
+    _remove(os.path.join(android_dir, "build"),          "android/build/",       dry_run=dry_run)
+    _remove(os.path.join(android_dir, "app", "build"),   "android/app/build/",   dry_run=dry_run)
+    _remove(os.path.join(android_dir, "app", ".cxx"),    "android/app/.cxx/",    dry_run=dry_run)
     _delete_gradle_cache(dry_run=dry_run, confirm_fn=confirm_fn)
-    return success
+    return gradle_success
 
 
 def _delete_gradle_cache(*, dry_run, confirm_fn):
@@ -439,7 +441,7 @@ def _flutter_upgrade_section(flutter_exe, *, confirm_fn, run_fn, results):
 def _step_kill(args, flutter_exe, *, dry_run: bool, run_all: bool) -> None:
     if (run_all or args.kill) and not args.no_kill:
         kill_dart_flutter(dry_run=dry_run, force=args.kill)
-        clear_flutter_lock(flutter_exe)
+    clear_flutter_lock(flutter_exe)
 
 
 # ── 2. Clean ───────────────────────────────────────────
@@ -458,6 +460,13 @@ def _step_clean(args, cfg, project_root, flutter_exe, results, *,
         if os.path.isdir(d):
             _remove(os.path.join(d, "Pods"),        f"{sub}/Pods/",       dry_run=dry_run)
             _remove(os.path.join(d, "Podfile.lock"), f"{sub}/Podfile.lock", dry_run=dry_run)
+            _remove(os.path.join(d, ".symlinks"),    f"{sub}/.symlinks/",   dry_run=dry_run)
+    
+    for sub in ("linux", "windows"):
+        if not cfg.platform_enabled(sub):
+            continue
+        eph = os.path.join(project_root, sub, "flutter", "ephemeral")
+        _remove(eph, f"{sub}/flutter/ephemeral/", dry_run=dry_run)
 
 
 # ── 3. Build-cache ─────────────────────────────────────
@@ -465,10 +474,11 @@ def _step_build_cache(args, project_root, results, *, dry_run: bool, run_all: bo
     if not (run_all or args.build_cache):
         return
     header("Delete build cache (build/ + .dart_tool/)")
-    build_dir = os.path.join(project_root, "build")
-    before = dir_size(build_dir) if os.path.isdir(build_dir) else 0
-    _remove(os.path.join(project_root, ".dart_tool"), ".dart_tool/", dry_run=dry_run)
-    _remove(os.path.join(project_root, "build"),      "build/",       dry_run=dry_run)
+    dart_tool_dir = os.path.join(project_root, ".dart_tool")
+    build_dir     = os.path.join(project_root, "build")
+    before = sum(dir_size(d) for d in (dart_tool_dir, build_dir) if os.path.isdir(d))
+    _remove(dart_tool_dir, ".dart_tool/", dry_run=dry_run)
+    _remove(build_dir,     "build/",      dry_run=dry_run)
     ok(f"Freed {fmt_size(before)}.")
     results.append(True)
 
@@ -633,7 +643,6 @@ def run(cfg: ProjectConfig, argv: list[str]) -> int:
         ok(f"Flutter found: {flutter_exe}")
     else:
         warn("Flutter not found - Flutter-dependent steps will be skipped.")
-    clear_flutter_lock(flutter_exe)
 
     results: list[bool] = []
     _dispatch_steps(args, cfg, flutter_exe, pub_modifiers, results,

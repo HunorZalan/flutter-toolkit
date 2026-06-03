@@ -476,7 +476,7 @@ def show_environment(enabled: set[str], flutter_exe: str | None, project_root: s
         ("pip", lambda: _version_oneliner([sys.executable, "-m", "pip", "--version"])),
         ("Git", lambda: _version_oneliner(["git", "--version"])),
         ("Java", _java_version),
-        ("Rust", _rust_version), 
+        ("Rust", _rust_version),
         ("Kotlin", _kotlin_version),
         ("Android SDK", _android_sdk_version),
         ("Gradle", lambda: _gradle_version(project_root)),
