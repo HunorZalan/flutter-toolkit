@@ -24,7 +24,7 @@ DEFAULT_ENV_CHECKS = {
     "Java", "Kotlin", "Android SDK", "Gradle", "ADB",
     "Xcode", "CocoaPods", "Ruby",
     "Node.js", "npm", "Homebrew", "Firebase CLI", "FlutterFire CLI", "Chrome", "Cordova", "Grunt",
-    "PHP", "Pillow",
+    "PHP", "Pillow", "Rust",
     _ANDROID_STUDIO, "MySQL", "VS Code", "SonarScanner",
 }
 
@@ -397,6 +397,32 @@ def _sonar_version() -> str:
         return _version_oneliner(["sonar-scanner.bat", "--version"])
     return ""
 
+def _rust_version() -> str:
+    v = _version_oneliner(["rustc", "--version"])
+    if v:
+        cargo = _version_oneliner(["cargo", "--version"])
+        return f"{v}  |  {cargo}" if cargo else v
+
+    # 2. Fallback: ~/.cargo/bin
+    if sys.platform == "win32":
+        cargo_bin = os.path.join(os.environ.get("USERPROFILE", ""), ".cargo", "bin")
+        rustc_exe  = os.path.join(cargo_bin, "rustc.exe")
+        cargo_exe  = os.path.join(cargo_bin, "cargo.exe")
+    else:
+        cargo_bin = os.path.expanduser("~/.cargo/bin")
+        rustc_exe  = os.path.join(cargo_bin, "rustc")
+        cargo_exe  = os.path.join(cargo_bin, "cargo")
+
+    if os.path.isfile(rustc_exe):
+        v = _version_oneliner([rustc_exe, "--version"])
+        if v:
+            cargo_v = (
+                _version_oneliner([cargo_exe, "--version"])
+                if os.path.isfile(cargo_exe) else ""
+            )
+            return f"{v}  |  {cargo_v}" if cargo_v else v
+
+    return ""
 
 def _chrome_version() -> str:
     if sys.platform == "win32":
@@ -450,6 +476,7 @@ def show_environment(enabled: set[str], flutter_exe: str | None, project_root: s
         ("pip", lambda: _version_oneliner([sys.executable, "-m", "pip", "--version"])),
         ("Git", lambda: _version_oneliner(["git", "--version"])),
         ("Java", _java_version),
+        ("Rust", _rust_version),
         ("Kotlin", _kotlin_version),
         ("Android SDK", _android_sdk_version),
         ("Gradle", lambda: _gradle_version(project_root)),

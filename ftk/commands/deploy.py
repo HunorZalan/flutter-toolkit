@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-
+from dataclasses import replace as _dc_replace
 from ftk.common import C, header, ok, warn, err, info, skip, confirm, fmt_size, missing_dep
 from ftk.config import ProjectConfig, DeployTargetConfig
 
@@ -206,6 +206,20 @@ class SftpDeployer(Deployer):
                 except Exception:
                     pass
 
+def _effective_remote_path(target: DeployTargetConfig, env: str) -> str | None:
+    """Return the effective remote path for the given env.
+
+    Returns None (and prints an error) if env='dev' but dev_remote_path is not set.
+    """
+    if env == "dev":
+        if not target.dev_remote_path:
+            err(
+                f"No dev_remote_path configured for flavor '{target.flavor}'. "
+                f"Add dev_remote_path to its deploy target in ftk.yaml."
+            )
+            return None
+        return target.dev_remote_path
+    return target.remote_path
 
 def _make_deployer(target: DeployTargetConfig) -> Deployer:
     proto = target.protocol.lower()
@@ -292,7 +306,8 @@ def _create_backup_zip(tmp_dir, zip_path):
                 zf.write(full, arc)
 
 
-def _backup_remote(deployer, target, flavor_name, project_root, dry_run) -> BackupResult:
+def _backup_remote(deployer, target, flavor_name, project_root, dry_run,
+                   *, env_suffix: str = "") -> BackupResult:
     info("Listing remote files for backup...")
     try:
         remote_files = deployer.list_remote()
@@ -304,11 +319,12 @@ def _backup_remote(deployer, target, flavor_name, project_root, dry_run) -> Back
         return BackupResult(success=True, remote_files=[])
     remote_files = [r.removeprefix("./") for r in remote_files]
     info(f"Found {len(remote_files)} remote file(s). Downloading to ZIP...")
-    backup_dir_rel = target.backup_dir or f"build/deploy_backups/{flavor_name or 'default'}"
+    label = f"{flavor_name or 'default'}{env_suffix}"
+    backup_dir_rel = target.backup_dir or f"build/deploy_backups/{label}"
     backup_dir = os.path.join(project_root, *backup_dir_rel.split("/"))
     os.makedirs(backup_dir, exist_ok=True)
     ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    zip_name = f"backup_{flavor_name or 'default'}_{ts}.zip"
+    zip_name = f"backup_{label}_{ts}.zip"
     zip_path = os.path.join(backup_dir, zip_name)
     if dry_run:
         info(f"[dry-run] would create backup: {zip_path}")
@@ -331,7 +347,9 @@ def _backup_remote(deployer, target, flavor_name, project_root, dry_run) -> Back
             _shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-def _resolve_remote_files(deployer, target, project_root, skip_backup, auto_yes):
+def _resolve_remote_files(deployer, target, project_root, skip_backup, auto_yes,
+                          *, env: str = "prod"):
+    env_suffix = f"_{env}" if env != "prod" else ""
     if skip_backup:
         warn("Backup skipped (--no-backup).")
         try:
@@ -339,7 +357,8 @@ def _resolve_remote_files(deployer, target, project_root, skip_backup, auto_yes)
         except Exception:
             return True, []
 
-    result = _backup_remote(deployer, target, target.flavor, project_root, dry_run=False)
+    result = _backup_remote(deployer, target, target.flavor, project_root,
+                            dry_run=False, env_suffix=env_suffix)
     if not result.success:
         warn("Backup failed - aborting deploy.")
         return False, []
@@ -378,9 +397,10 @@ def _upload_files(deployer, sorted_files, build_dir, remote_set, skip_patterns):
     return stats
 
 
-def _print_deploy_summary(flavor_name, stats):
+def _print_deploy_summary(flavor_name, stats, env: str = "prod"):
+    env_tag = f" [{env}]" if env != "prod" else ""
     print()
-    info(f"  {flavor_name} summary:")
+    info(f"  {flavor_name}{env_tag} summary:")
     ok(  f"    Uploaded   : {stats.uploaded}  ({fmt_size(stats.bytes)})")
     info(f"    New files  : {stats.new_files}")
     info(f"    Overwrote  : {stats.overwrote}")
@@ -391,26 +411,36 @@ def _print_deploy_summary(flavor_name, stats):
 
 
 def _deploy_flavor(target: DeployTargetConfig, project_root: str, *,
-                   auto_yes: bool, dry_run: bool, skip_backup: bool) -> bool:
+                   auto_yes: bool, dry_run: bool, skip_backup: bool,
+                   env: str = "prod") -> bool:
     flavor_name = target.flavor or "default"
-    header(f"Deploy: {flavor_name}")
+    env_tag = f" [{env}]" if env != "prod" else ""
+    header(f"Deploy: {flavor_name}{env_tag}")
+
     if not target.host or not target.user:
         err(f"Target {flavor_name} is not configured (missing host/user).")
         return False
     if not target.resolved_password():
         err(f"No password set for {flavor_name}. Set env var {target.password_env or '<password>'}.")
         return False
+
+    effective_path = _effective_remote_path(target, env)
+    if effective_path is None:
+        return False
+    working_target = _dc_replace(target, remote_path=effective_path)
+
     build_dir = _build_dir_for(project_root, target.flavor)
     if not build_dir:
         err(f"No web build found for '{flavor_name}'.")
         info(f"  Run `ftk build --web --flavor {flavor_name}` first.")
         return False
-    info(f"Build dir   : {os.path.relpath(build_dir, project_root)}")
+
     local_files = _collect_local_files(build_dir)
+    info(f"Build dir   : {os.path.relpath(build_dir, project_root)}")
     info(f"Local files : {len(local_files)}")
-    info(f"Protocol    : {target.protocol}")
-    info(f"Server      : {target.user}@{target.host}:{target.port or 'default'}")
-    info(f"Remote path : {target.remote_path}")
+    info(f"Protocol    : {working_target.protocol}")
+    info(f"Server      : {working_target.user}@{working_target.host}:{working_target.port or 'default'}")
+    info(f"Remote path : {working_target.remote_path}")
 
     if dry_run:
         info("[dry-run] would connect, backup, and upload")
@@ -420,12 +450,13 @@ def _deploy_flavor(target: DeployTargetConfig, project_root: str, *,
             info(f"  ... and {len(local_files) - 5} more")
         return True
 
-    if not confirm(f"Deploy {len(local_files)} file(s) to {flavor_name}?",
+    target_desc = f"{flavor_name}{env_tag}"
+    if not confirm(f"Deploy {len(local_files)} file(s) to {target_desc}?",
                    auto_yes=auto_yes, dry_run=False):
         skip("Deploy cancelled.")
         return False
 
-    deployer = _make_deployer(target)
+    deployer = _make_deployer(working_target)
     info("Connecting...")
     try:
         deployer.connect()
@@ -436,33 +467,39 @@ def _deploy_flavor(target: DeployTargetConfig, project_root: str, *,
 
     try:
         proceed, remote_files = _resolve_remote_files(
-            deployer, target, project_root, skip_backup, auto_yes)
+            deployer, target, project_root, skip_backup, auto_yes, env=env)
         if not proceed:
             return False
 
         sorted_files = _sort_for_safe_upload(local_files)
         info("Uploading files (assets first, HTML last)...")
         stats = _upload_files(deployer, sorted_files, build_dir,
-                              set(remote_files), target.skip_patterns)
+                              set(remote_files), working_target.skip_patterns)
     finally:
         deployer.disconnect()
 
-    _print_deploy_summary(flavor_name, stats)
+    _print_deploy_summary(flavor_name, stats, env=env)
     return stats.failed == 0
 
 
 def _deploy_all_flavors(cfg, flavors, args):
     results = []
+    envs = ["prod", "dev"] if args.env == "both" else [args.env]
     for flavor in flavors:
         target = cfg.deploy_target(flavor)
         if not target:
             err(f"No deploy target for flavor: {flavor}")
-            results.append((flavor, False))
+            results.append((f"{flavor}[prod]", False))
             continue
-        print(f"\n{C.BOLD}{'-' * 60}{C.RESET}")
-        ok_flag = _deploy_flavor(target, cfg.root, auto_yes=args.yes,
-                                 dry_run=args.dry_run, skip_backup=args.no_backup)
-        results.append((flavor, ok_flag))
+        for env in envs:
+            print(f"\n{C.BOLD}{'-' * 60}{C.RESET}")
+            ok_flag = _deploy_flavor(
+                target, cfg.root,
+                auto_yes=args.yes, dry_run=args.dry_run,
+                skip_backup=args.no_backup, env=env,
+            )
+            label = f"{flavor}[{env}]" if (len(envs) > 1 or env != "prod") else flavor
+            results.append((label, ok_flag))
     return results
 
 
@@ -470,7 +507,11 @@ def _list_targets(cfg):
     header("Configured deploy targets")
     for t in cfg.integrations.deploy:
         configured = "OK" if (t.host and t.user and t.resolved_password()) else "--"
-        info(f"  [{configured}] {t.flavor:<10} {t.protocol:<5} {t.user}@{t.host or '(not set)'} -> {t.remote_path}")
+        dev_info = f"  |  dev: {t.dev_remote_path}" if t.dev_remote_path else ""
+        info(
+            f"  [{configured}] {t.flavor:<10} {t.protocol:<5} "
+            f"{t.user}@{t.host or '(not set)'} -> {t.remote_path}{dev_info}"
+        )
     print()
 
 
@@ -486,8 +527,12 @@ def run(cfg: ProjectConfig, argv: list[str]) -> int:
     p.add_argument("--flavor", "-f", nargs="+", action="append",
                    choices=target_names if target_names else None,
                    metavar="FLAVOR")
+    p.add_argument("--env", "-e",
+                   choices=["prod", "dev", "both"], default="prod",
+                   metavar="ENV",
+                   help="Target environment: prod (default), dev, or both")
     p.add_argument("--no-backup", action="store_true")
-    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--dry-run",   action="store_true")
     p.add_argument("--yes", "-y", action="store_true")
     p.add_argument("--list-targets", action="store_true")
     args = p.parse_args(argv)
@@ -504,8 +549,9 @@ def run(cfg: ProjectConfig, argv: list[str]) -> int:
     info(f"Project root : {cfg.root}")
     info(f"Flavor(s)    : {', '.join(flavors)}")
     extras = []
-    if args.dry_run: extras.append("DRY RUN")
-    if args.no_backup: extras.append("NO BACKUP")
+    if args.env != "prod":  extras.append(f"ENV={args.env.upper()}")
+    if args.dry_run:        extras.append("DRY RUN")
+    if args.no_backup:      extras.append("NO BACKUP")
     if extras:
         info(f"Flags        : {', '.join(extras)}")
 

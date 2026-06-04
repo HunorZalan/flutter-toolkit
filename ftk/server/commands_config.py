@@ -329,7 +329,7 @@ def _icons(cfg: ProjectConfig) -> dict:
 
     def popt(flag: str, label: str, platform: str) -> dict:
         return {"flag": flag, "label": label,
-                "disabled": _platform_disabled(cfg, platform)}
+                "disabled": not cfg.platform_enabled(platform)}
 
     groups.extend([
         {"label": "Platform", "type": "checkboxes", "hint": "No selection = ios/android/web", "options": [
@@ -439,6 +439,19 @@ def _deploy(cfg: ProjectConfig) -> dict:
     fg = _flavor_group(cfg)
     if fg:
         groups.append(fg)
+
+    has_dev = any(t.dev_remote_path for t in cfg.integrations.deploy)
+    if has_dev:
+        groups.append({
+            "label": "Environment",
+            "type": "select",
+            "options": [
+                {"flag": "",            "label": "Production (default)"},
+                {"flag": "--env dev",   "label": "Development"},
+                {"flag": "--env both",  "label": "Both (prod + dev)"},
+            ],
+        })
+
     groups.extend([
         {"label": "Action", "type": "checkboxes", "hint": "Check to list targets only", "options": [
             {"flag": "--list-targets", "label": "List configured targets (no deploy)"},
