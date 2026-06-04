@@ -56,6 +56,16 @@
     const BASE_TITLE = document.querySelector(".header h1")?.textContent?.trim() || "Flutter Toolkit";
     const welcomeHTML = configEl.innerHTML;
     const MAX_OUTPUT_LINES = 50000;
+    // Platform
+    const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent);
+    const ctrlLabel = isMac ? '⌘' : 'Ctrl';
+    const altLabel  = isMac ? '⌥' : 'Alt';
+    const kbd = s => s.replace(/\bCtrl\b/g, ctrlLabel).replace(/\bAlt\b/g, altLabel);
+    // Apply to all initial [title] attrs + welcome shortcut spans (before welcomeHTML snapshot)
+    if (isMac) {
+        document.querySelectorAll('[title]').forEach(el => { el.title = kbd(el.title); });
+        document.querySelectorAll('.shortcuts span').forEach(el => { el.textContent = kbd(el.textContent); });
+    }
     // State
     let ws = null;
     let config = null;
@@ -375,12 +385,11 @@
     function updateRunBtnTooltip(cmdName) {
         if (!cmdName) { return; }
         const saved = localStorage.getItem(`toolkit-lastrun-${cmdName}`);
-        if (!saved) { runBtn.title = "Run command (Ctrl+Enter)"; return; }
+        if (!saved) { runBtn.title = kbd("Run command (Ctrl+Enter)"); return; }
         const { exitCode, duration, time } = JSON.parse(saved);
         const d = new Date(time);
-
         const t = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        runBtn.title = `Run command (Ctrl+Enter)  ·  Last: ${exitCode === 0 ? "✓" : "✗"} ${duration}s @ ${t}`;
+        runBtn.title = `${kbd("Run command (Ctrl+Enter)")}  ·  Last: ${exitCode === 0 ? "✓" : "✗"} ${duration}s @ ${t}`;
     }
     // Config collapse
     let configCollapsed = localStorage.getItem("toolkit-config-collapsed") === "1";
@@ -389,8 +398,8 @@
         configEl.classList.toggle("collapsed", configCollapsed);
         collapseConfigBtn.classList.toggle("collapsed", configCollapsed);
         collapseConfigBtn.title = configCollapsed
-            ? "Expand config panel (Ctrl+Shift+B)"
-            : "Collapse config panel (Ctrl+Shift+B)";
+            ? kbd("Expand config panel (Ctrl+Shift+B)")
+            : kbd("Collapse config panel (Ctrl+Shift+B)");
         collapseConfigBtn.setAttribute("aria-expanded", String(!configCollapsed));
     }
     collapseConfigBtn.addEventListener("click", () => {
@@ -409,8 +418,8 @@
         configEl.classList.toggle("expanded", outputCollapsed);
         collapseOutBtn.classList.toggle("collapsed", outputCollapsed);
         collapseOutBtn.title = outputCollapsed
-            ? "Show output panel (Ctrl+Alt+B)"
-            : "Expand config / collapse output (Ctrl+Alt+B)";
+            ? kbd("Show output panel (Ctrl+Alt+B)")
+            : kbd("Expand config / collapse output (Ctrl+Alt+B)");
         collapseOutBtn.setAttribute("aria-expanded", String(!outputCollapsed));
     }
     collapseOutBtn.addEventListener("click", () => {
@@ -476,7 +485,7 @@
         configEl.innerHTML = welcomeHTML;
         ctrlEl.dataset.hidden = "";
         outEl.innerHTML = "";
-        runBtn.title = "Run command (Ctrl+Enter)";
+        runBtn.title = kbd("Run command (Ctrl+Enter)");
         document.title = BASE_TITLE;
         hideSearch();
         clearStatusBar();
