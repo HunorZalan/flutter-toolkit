@@ -74,6 +74,7 @@ class DeployTargetConfig:
     password: str = ""
     password_env: str = ""
     remote_path: str = "/"
+    dev_remote_path: str = "" 
     protocol: str = "ftp"          # ftp / ftps / sftp
     port: int | None = None
     backup_dir: str = ""           # optional remote backup directory
@@ -265,30 +266,31 @@ def _find_config_file(project_root: str) -> str | None:
 
 def _coerce_flavor(data: dict[str, Any]) -> FlavorConfig:
     return FlavorConfig(
-        name            = str(data.get("name", "")).strip(),
-        display_name    = str(data.get("display_name", "") or data.get("displayName", "")),
-        ios_info_plist  = str(data.get("ios_info_plist", "")),
-        ios_config_dir  = str(data.get("ios_config_dir", "")),
-        web_new_prefix  = bool(data.get("web_new_prefix", True)),
-        web_base_href   = str(data.get("web_base_href", "")),
-        adaptive_bg     = str(data.get("adaptive_bg", "#FFFFFF")),
-        notification_color = str(data.get("notification_color", "#1B5E20")),
+        name                = str(data.get("name", "")).strip(),
+        display_name        = str(data.get("display_name", "") or data.get("displayName", "")),
+        ios_info_plist      = str(data.get("ios_info_plist", "")),
+        ios_config_dir      = str(data.get("ios_config_dir", "")),
+        web_new_prefix      = bool(data.get("web_new_prefix", True)),
+        web_base_href       = str(data.get("web_base_href", "")),
+        adaptive_bg         = str(data.get("adaptive_bg", "#FFFFFF")),
+        notification_color  = str(data.get("notification_color", "#1B5E20")),
     )
 
 
 def _coerce_deploy(data: dict[str, Any]) -> DeployTargetConfig:
     return DeployTargetConfig(
-        flavor       = str(data.get("flavor", "")).strip(),
-        host         = str(data.get("host", "")),
-        user         = str(data.get("user", "")),
-        password     = str(data.get("password", "")),
-        password_env = str(data.get("password_env", "")),
-        remote_path  = str(data.get("remote_path", "/")),
-        protocol     = str(data.get("protocol", "ftp")).lower(),
-        port         = (int(data["port"]) if data.get("port") is not None else None),
-        backup_dir   = str(data.get("backup_dir", "")),
-        passive      = bool(data.get("passive", True)),
-        skip_patterns = list(data.get("skip_patterns", []) or []),
+        flavor          = str(data.get("flavor", "")).strip(),
+        host            = str(data.get("host", "")),
+        user            = str(data.get("user", "")),
+        password        = str(data.get("password", "")),
+        password_env    = str(data.get("password_env", "")),
+        remote_path     = str(data.get("remote_path", "/")),
+        dev_remote_path = str(data.get("dev_remote_path", "")),
+        protocol        = str(data.get("protocol", "ftp")).lower(),
+        port            = (int(data["port"]) if data.get("port") is not None else None),
+        backup_dir      = str(data.get("backup_dir", "")),
+        passive         = bool(data.get("passive", True)),
+        skip_patterns   = list(data.get("skip_patterns", []) or []),
     )
 
 
