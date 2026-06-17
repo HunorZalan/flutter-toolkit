@@ -22,7 +22,7 @@ _ANDROID_STUDIO = "Android Studio"
 DEFAULT_ENV_CHECKS = {
     "Flutter", "Dart", "Python", "pip", "Git",
     "Java", "Kotlin", "Android SDK", "Gradle", "ADB",
-    "Xcode", "CocoaPods", "Ruby",
+    "Xcode", "CocoaPods", "Swift", "Ruby",
     "Node.js", "npm", "Homebrew", "Firebase CLI", "FlutterFire CLI", "Chrome", "Cordova", "Grunt",
     "PHP", "Pillow", "Rust",
     _ANDROID_STUDIO, "MySQL", "VS Code", "SonarScanner",
@@ -261,6 +261,35 @@ def _composer_version() -> str:
             return _version_oneliner([bat, "--version"])
     return ""
 
+def _ruby_version() -> str:
+    v = _version_oneliner(["ruby", "--version"])
+    if v:
+        return v
+    if sys.platform == "darwin":
+        for path in (
+            "/opt/homebrew/opt/ruby/bin/ruby",
+            "/usr/local/opt/ruby/bin/ruby",
+            "/usr/bin/ruby",
+        ):
+            if os.path.isfile(path):
+                v = _version_oneliner([path, "--version"])
+                if v:
+                    return v
+    elif sys.platform == "win32":
+        sys_drive = os.environ.get("SYSTEMDRIVE", "C:") + "\\"
+        if os.path.isdir(sys_drive):
+            try:
+                entries = sorted(os.listdir(sys_drive), reverse=True)
+            except OSError:
+                entries = []
+            for entry in entries:
+                if entry.lower().startswith("ruby"):
+                    exe = os.path.join(sys_drive, entry, "bin", "ruby.exe")
+                    if os.path.isfile(exe):
+                        v = _version_oneliner([exe, "--version"])
+                        if v:
+                            return v
+    return ""
 
 def _get_android_sdk_root() -> str:
     sdk = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT") or ""
@@ -483,7 +512,8 @@ def show_environment(enabled: set[str], flutter_exe: str | None, project_root: s
         ("ADB", _adb_version),
         ("Xcode", lambda: _version_oneliner(["xcodebuild", "-version"]) if sys.platform == "darwin" else None),
         ("CocoaPods", lambda: _version_oneliner(["pod", "--version"]) if sys.platform == "darwin" else None),
-        ("Ruby", lambda: _version_oneliner(["ruby", "--version"]) if sys.platform == "darwin" else None),
+        ("Swift", lambda: _version_oneliner(["swift", "--version"]) if sys.platform == "darwin" else None),
+        ("Ruby", _ruby_version),
         ("Node.js", lambda: _version_oneliner(["node", "--version"])),
         ("Homebrew", lambda: _version_oneliner(["brew", "--version"]) if sys.platform == "darwin" else None),
         ("npm", lambda: _win_cmd_fallback("npm", ["--version"])),
