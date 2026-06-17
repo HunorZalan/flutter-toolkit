@@ -49,6 +49,7 @@ commands:
   build: true
   info: true
   analyze: true
+  codegen: true
   test: true
   unused: true
   translations: true

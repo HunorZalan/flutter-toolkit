@@ -78,6 +78,33 @@ def _flavor_group(cfg: ProjectConfig, hint: str = _HINT_DEFAULT_FLAVOR) -> dict 
     return {"label": "Flavor", "type": "checkboxes", "hint": hint,
             "options": _flavor_options(cfg)}
 
+def _deploy_flavor_options(cfg: ProjectConfig) -> list[dict]:
+    out = []
+    for f in cfg.flavors:
+        has_target = cfg.deploy_target(f.name) is not None
+        out.append({
+            "flag": f"-f {f.name}", "label": f.name, "disabled": not has_target,
+            "tip": (f"Deploy the {f.display_name or f.name} flavor." if has_target
+                    else "No deploy target configured for this flavor in ftk.yaml."),
+        })
+    return out
+
+
+def _deploy_flavor_group(cfg: ProjectConfig) -> dict | None:
+    if not cfg.has_flavors:
+        return None
+    return {"label": "Flavor", "type": "checkboxes", "hint": _HINT_DEFAULT_FLAVOR,
+            "options": _deploy_flavor_options(cfg)}
+
+
+def _deploy_flavor_presets(cfg: ProjectConfig, base_flags: list[str]) -> list[dict]:
+    if not cfg.has_flavors:
+        return []
+    out = [{"label": f.name, "flags": [f"-f {f.name}", *base_flags],
+            "disabled": cfg.deploy_target(f.name) is None}
+           for f in cfg.flavors]
+    out.append({"label": "All", "flags": base_flags, "default": True, "disabled": False})
+    return out
 
 def _flavor_presets(cfg: ProjectConfig, base_flags: list[str]) -> list[dict]:
     if not cfg.has_flavors:
@@ -436,7 +463,7 @@ def _deploy(cfg: ProjectConfig) -> dict:
             missing_builds.append(fname or "default")
 
     groups = []
-    fg = _flavor_group(cfg)
+    fg = _deploy_flavor_group(cfg)
     if fg:
         groups.append(fg)
 
@@ -468,7 +495,7 @@ def _deploy(cfg: ProjectConfig) -> dict:
         "description": "Upload web build to remote server.",
         "script": "deploy", "inject_flags": [],
         "groups": groups,
-        "presets": _flavor_presets(cfg, ["--yes"]) + [
+        "presets": _deploy_flavor_presets(cfg, ["--yes"]) + [
             {"label": "List targets", "flags": ["--list-targets"]},
         ],
         "disabled": not cfg.command_enabled("deploy"),
