@@ -85,6 +85,7 @@
     let activeFilter = "all";
     let autoClearEnabled = localStorage.getItem("toolkit-autoclear") === "1";
     let soundEnabled = localStorage.getItem("toolkit-sound") !== "0";
+    let shortcutsCollapsed = localStorage.getItem("toolkit-shortcuts-collapsed") !== "0";
     const cmdLineCounts = {};
     // Flag tooltips
     const FLAG_TIPS = {
@@ -233,6 +234,20 @@
         cmdLineCounts[cmdName] = 0;
         updateCmdBadge(cmdName);
     }
+    // Shortcuts panel (welcome screen)
+    function syncShortcutsPanel() {
+        const panel = $("shortcuts-panel");
+        const toggle = $("shortcuts-toggle");
+        if (!panel || !toggle) { return; }
+        panel.classList.toggle("collapsed", shortcutsCollapsed);
+        toggle.setAttribute("aria-expanded", String(!shortcutsCollapsed));
+    }
+    configEl.addEventListener("click", (e) => {
+        if (!e.target.closest("#shortcuts-toggle")) { return; }
+        shortcutsCollapsed = !shortcutsCollapsed;
+        localStorage.setItem("toolkit-shortcuts-collapsed", shortcutsCollapsed ? "1" : "0");
+        syncShortcutsPanel();
+    });
     // Sound
     function syncSoundBtn() {
         $("icon-sound-on").hidden = !soundEnabled;
@@ -479,6 +494,7 @@
         document.body.classList.remove("fullscreen-mode", "hide-run-controls");
         for (const b of navEl.querySelectorAll(".cmd-btn")) { b.classList.remove("active"); }
         configEl.innerHTML = welcomeHTML;
+        syncShortcutsPanel();
         ctrlEl.dataset.hidden = "";
         outEl.innerHTML = "";
         runBtn.title = kbd("Run command (Ctrl+Enter)");

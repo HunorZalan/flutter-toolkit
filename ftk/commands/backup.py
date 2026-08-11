@@ -24,9 +24,6 @@ FORMATS: dict[str, dict] = {
 }
 TAR_MODES = {"tar.gz": "w:gz", "tar.bz2": "w:bz2", "tar.xz": "w:xz", "tar": "w:"}
 
-_BACKUP_RE = re.compile(r"^backup_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.")
-_BACKUP_GLOB = "backup_*"
-
 
 class _Progress:
     def __init__(self, total: int):
@@ -51,36 +48,40 @@ def _timestamp() -> str:
     return datetime.now().strftime("%Y-%m-%d_%H-%M")
 
 
+def _slugify(name: str) -> str:
+    """Turn a project id/name into a safe filename prefix."""
+    slug = re.sub(r"[^A-Za-z0-9_-]+", "_", name.strip())
+    slug = re.sub(r"_+", "_", slug).strip("_")
+    return slug or "project"
+
+
+def _project_prefix(cfg: ProjectConfig) -> str:
+    return _slugify(cfg.id or cfg.name or Path(cfg.root).name)
+
+
+def _backup_regex(prefix: str) -> re.Pattern:
+    return re.compile(rf"^{re.escape(prefix)}_backup_\d{{4}}-\d{{2}}-\d{{2}}_\d{{2}}-\d{{2}}\.")
+
+
+def _backup_glob(prefix: str) -> str:
+    return f"{prefix}_backup_*"
+
+
 def _default_output_dir(project_root: str) -> Path:
     root = Path(project_root)
     return root.parent / f"{root.name}_backups"
 
 
-def _build_output_path(project_root: str, fmt: str, output: str | None) -> Path:
+def _build_output_path(project_root: str, fmt: str, output: str | None, prefix: str) -> Path:
     ext = FORMATS[fmt]["ext"]
-    name = f"backup_{_timestamp()}{ext}"
+    name = f"{prefix}_backup_{_timestamp()}{ext}"
     if output:
         p = Path(output).expanduser()
         return p / name if p.is_dir() or not p.suffix else p
     return _default_output_dir(project_root) / name
 
 
-def _should_skip_file(p: Path, root: Path, dirpath: str, excludes: set[str], out_resolved):
-    if dirpath == str(root) and p.name in excludes:
-        return True
-    rel_parts = p.relative_to(root).parts
-    is_root_backup = len(rel_parts) == 1 and _BACKUP_RE.match(rel_parts[0])
-    if is_root_backup:
-        return True
-    try:
-        if out_resolved and p.resolve() == out_resolved:
-            return True
-    except OSError:
-        pass
-    return False
-
-
-def _collect_files(project_root: str, excludes: set[str], out_path: Path) -> list[Path]:
+def _collect_files(project_root: str, excludes: set[str], out_path: Path, backup_re: re.Pattern) -> list[Path]:
     root = Path(project_root)
     try:
         out_resolved = out_path.resolve()
@@ -103,7 +104,7 @@ def _collect_files(project_root: str, excludes: set[str], out_path: Path) -> lis
             if dirpath == str(root) and p.name in excludes:
                 continue
             rel_parts = p.relative_to(root).parts
-            if len(rel_parts) == 1 and _BACKUP_RE.match(rel_parts[0]):
+            if len(rel_parts) == 1 and backup_re.match(rel_parts[0]):
                 continue
             if out_resolved and p == out_path:
                 continue
@@ -111,11 +112,11 @@ def _collect_files(project_root: str, excludes: set[str], out_path: Path) -> lis
     return files
 
 
-def _rotate_backups(out_dir: Path, keep: int) -> int:
+def _rotate_backups(out_dir: Path, keep: int, backup_glob: str) -> int:
     if keep <= 0:
         return 0
     candidates = sorted(
-        (p for p in out_dir.glob(_BACKUP_GLOB) if p.is_file()),
+        (p for p in out_dir.glob(backup_glob) if p.is_file()),
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
@@ -241,15 +242,15 @@ def _print_summary(fmt, exclude_set, out, keep, bcfg, project_root):
         info(f"Keep         : {keep} most recent backup(s)")
 
 
-def _run_dry_run(project_root, exclude_set, out):
+def _run_dry_run(project_root, exclude_set, out, backup_re):
     info("[dry-run] Scanning files for preview...")
-    files = _collect_files(project_root, exclude_set, out)
+    files = _collect_files(project_root, exclude_set, out, backup_re)
     raw_total = sum(f.stat().st_size for f in files)
     info(f"Would archive: {len(files):,} files  ({fmt_size(raw_total)})")
     info("[dry-run] No archive will be created.")
 
 
-def _create_and_report(fmt, out, files, root, password, keep):
+def _create_and_report(fmt, out, files, root, password, keep, backup_glob):
     tmp_out = out.with_suffix(out.suffix + ".tmp")
     try:
         raw = _dispatch_archive(fmt, tmp_out, files, root, password)
@@ -263,7 +264,7 @@ def _create_and_report(fmt, out, files, root, password, keep):
         ok(f"Compressed   : {fmt_size(compressed)}  ({ratio:.1f}% saved)")
         ok(f"Location     : {out}")
         if keep > 0:
-            deleted = _rotate_backups(out.parent, keep)
+            deleted = _rotate_backups(out.parent, keep, backup_glob)
             if deleted:
                 ok(f"Rotated      : removed {deleted} old backup(s)")
         return 0
@@ -289,6 +290,10 @@ def run(cfg: ProjectConfig, argv: list[str]) -> int:
         err("integrations.backup is not configured in ftk.yaml")
         return 1
 
+    prefix = _project_prefix(cfg)
+    backup_re = _backup_regex(prefix)
+    backup_glob = _backup_glob(prefix)
+
     default_fmt = bcfg.default_format if bcfg.default_format in FORMATS else "zip"
     default_excludes = set(bcfg.default_excludes)
 
@@ -313,7 +318,7 @@ def run(cfg: ProjectConfig, argv: list[str]) -> int:
         args.output = bcfg.output_dir
 
     fmt = args.format
-    out = _build_output_path(project_root, fmt, args.output)
+    out = _build_output_path(project_root, fmt, args.output, prefix)
     exclude_set: set[str] = set(args.exclude)
     if not args.no_default_excludes:
         exclude_set |= default_excludes
@@ -321,11 +326,11 @@ def run(cfg: ProjectConfig, argv: list[str]) -> int:
     _print_summary(fmt, exclude_set, out, args.keep, bcfg, project_root)
 
     if args.dry_run:
-        _run_dry_run(project_root, exclude_set, out)
+        _run_dry_run(project_root, exclude_set, out, backup_re)
         return 0
 
     info("Scanning files...")
-    files = _collect_files(project_root, exclude_set, out)
+    files = _collect_files(project_root, exclude_set, out, backup_re)
     if not files:
         err("No files found to archive.")
         return 1
@@ -341,4 +346,4 @@ def run(cfg: ProjectConfig, argv: list[str]) -> int:
 
     info("Creating archive...")
     out.parent.mkdir(parents=True, exist_ok=True)
-    return _create_and_report(fmt, out, files, Path(project_root), bcfg.password, args.keep)
+    return _create_and_report(fmt, out, files, Path(project_root), bcfg.password, args.keep, backup_glob)

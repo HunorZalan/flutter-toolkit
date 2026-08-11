@@ -90,28 +90,34 @@
                         <h2>Welcome!</h2>
                         <p>Select a tool from the sidebar to get started.</p>
                         <span class="hint">All scripts also work from the command line.</span>
-                        <h3>Shortcuts list:</h3>
-                        <div class="shortcuts shortcuts-run">
-                            <span>Ctrl+Enter = Run</span>,
-                            <span>Ctrl+L = Clear</span>,
-                            <span>Esc = Stop</span>,
-                            <span>Ctrl+Z = Undo clear</span>;
-                        </div>
-                        <div class="shortcuts shortcuts-search">
-                            <span>Ctrl+F = Search output</span>,
-                            <span>Ctrl+Shift+F = Toggle output filter</span>,
-                            <span>Enter = Next match</span>,
-                            <span>Shift+Enter = Prev match</span>;
-                        </div>
-                        <div class="shortcuts shortcuts-filter">
-                            <span>Ctrl+B = Toggle sidebar</span>,
-                            <span>Ctrl+Shift+B = Toggle config panel</span>,
-                            <span>Ctrl+Alt+B = Toggle output panel</span>;
-                        </div>
-                        <div class="shortcuts shortcuts-note">
-                            <span>Ctrl+S = Save notes</span>,
-                            <span>Ctrl+Z = Undo notes</span>,
-                            <span>Ctrl+Shift+Z = Redo notes</span>;
+                        <div class="shortcuts-panel collapsed" id="shortcuts-panel">
+                            <button type="button" class="shortcuts-toggle" id="shortcuts-toggle" aria-expanded="false" aria-controls="shortcuts-body">
+                                Shortcuts list
+                            </button>
+                            <div class="shortcuts-body" id="shortcuts-body">
+                                <div class="shortcuts shortcuts-run">
+                                    <span>Ctrl+Enter = Run</span>,
+                                    <span>Ctrl+L = Clear</span>,
+                                    <span>Esc = Stop</span>,
+                                    <span>Ctrl+Z = Undo clear</span>;
+                                </div>
+                                <div class="shortcuts shortcuts-search">
+                                    <span>Ctrl+F = Search output</span>,
+                                    <span>Ctrl+Shift+F = Toggle output filter</span>,
+                                    <span>Enter = Next match</span>,
+                                    <span>Shift+Enter = Prev match</span>;
+                                </div>
+                                <div class="shortcuts shortcuts-filter">
+                                    <span>Ctrl+B = Toggle sidebar</span>,
+                                    <span>Ctrl+Shift+B = Toggle config panel</span>,
+                                    <span>Ctrl+Alt+B = Toggle output panel</span>;
+                                </div>
+                                <div class="shortcuts shortcuts-note">
+                                    <span>Ctrl+S = Save notes</span>,
+                                    <span>Ctrl+Z = Undo notes</span>,
+                                    <span>Ctrl+Shift+Z = Redo notes</span>;
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
