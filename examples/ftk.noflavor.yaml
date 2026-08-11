@@ -28,6 +28,7 @@ commands:
   build: true
   info: true
   analyze: true
+  codegen: false
   test: true
   unused: true
   translations: true

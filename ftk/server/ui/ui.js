@@ -56,6 +56,16 @@
     const BASE_TITLE = document.querySelector(".header h1")?.textContent?.trim() || "Flutter Toolkit";
     const welcomeHTML = configEl.innerHTML;
     const MAX_OUTPUT_LINES = 50000;
+    // Platform
+    const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent);
+    const ctrlLabel = isMac ? '⌘' : 'Ctrl';
+    const altLabel = isMac ? '⌥' : 'Alt';
+    const kbd = s => s.replace(/\bCtrl\b/g, ctrlLabel).replace(/\bAlt\b/g, altLabel);
+    // Apply to all initial [title] attrs + welcome shortcut spans (before welcomeHTML snapshot)
+    if (isMac) {
+        document.querySelectorAll('[title]').forEach(el => { el.title = kbd(el.title); });
+        document.querySelectorAll('.shortcuts span').forEach(el => { el.textContent = kbd(el.textContent); });
+    }
     // State
     let ws = null;
     let config = null;
@@ -75,6 +85,7 @@
     let activeFilter = "all";
     let autoClearEnabled = localStorage.getItem("toolkit-autoclear") === "1";
     let soundEnabled = localStorage.getItem("toolkit-sound") !== "0";
+    let shortcutsCollapsed = localStorage.getItem("toolkit-shortcuts-collapsed") !== "0";
     const cmdLineCounts = {};
     // Flag tooltips
     const FLAG_TIPS = {
@@ -223,6 +234,20 @@
         cmdLineCounts[cmdName] = 0;
         updateCmdBadge(cmdName);
     }
+    // Shortcuts panel (welcome screen)
+    function syncShortcutsPanel() {
+        const panel = $("shortcuts-panel");
+        const toggle = $("shortcuts-toggle");
+        if (!panel || !toggle) { return; }
+        panel.classList.toggle("collapsed", shortcutsCollapsed);
+        toggle.setAttribute("aria-expanded", String(!shortcutsCollapsed));
+    }
+    configEl.addEventListener("click", (e) => {
+        if (!e.target.closest("#shortcuts-toggle")) { return; }
+        shortcutsCollapsed = !shortcutsCollapsed;
+        localStorage.setItem("toolkit-shortcuts-collapsed", shortcutsCollapsed ? "1" : "0");
+        syncShortcutsPanel();
+    });
     // Sound
     function syncSoundBtn() {
         $("icon-sound-on").hidden = !soundEnabled;
@@ -235,7 +260,7 @@
         soundEnabled = !soundEnabled;
         localStorage.setItem("toolkit-sound", soundEnabled ? "1" : "0");
         syncSoundBtn();
-        if (soundEnabled) playSound("success"); // preview
+        if (soundEnabled) { playSound("success"); } // preview
     });
     // Auto-clear
     function syncAutoClearBtn() {
@@ -250,12 +275,8 @@
         syncAutoClearBtn();
     });
     function getAudioCtx() {
-        if (!audioCtx) {
-            audioCtx = new (globalThis.AudioContext || globalThis.webkitAudioContext)();
-        }
-        if (audioCtx.state === "suspended") {
-            audioCtx.resume();
-        }
+        if (!audioCtx) { audioCtx = new (globalThis.AudioContext || globalThis.webkitAudioContext)(); }
+        if (audioCtx.state === "suspended") { audioCtx.resume(); }
         return audioCtx;
     }
     function playSound(type) {
@@ -314,18 +335,18 @@
     }
     filterBar.addEventListener("click", (e) => {
         const btn = e.target.closest(".filter-btn");
-        if (btn) applyFilter(btn.dataset.filter);
+        if (btn) { applyFilter(btn.dataset.filter); }
     });
     function toggleFilter() {
         filterVisible = !filterVisible;
         filterBar.classList.toggle("hidden", !filterVisible);
         filterBar.classList.toggle("visible", filterVisible);
         filterToggleBtn.classList.toggle("active", filterVisible);
-        if (!filterVisible) applyFilter("all");
+        if (!filterVisible) { applyFilter("all"); }
     }
     filterToggleBtn.addEventListener("click", toggleFilter);
     $("filter-close").addEventListener("click", () => {
-        if (filterVisible) toggleFilter();
+        if (filterVisible) { toggleFilter(); }
     });
     // StatusBar
     function clearStatusBar() {
@@ -355,13 +376,12 @@
         const divs = outEl.querySelectorAll("div");
         if (divs.length <= MAX_OUTPUT_LINES) { return; }
         const excess = divs.length - MAX_OUTPUT_LINES;
-        for (let i = 0; i < excess; i++) divs[i].remove();
+        for (let i = 0; i < excess; i++) { divs[i].remove(); }
     }
     function updateSbRunInfo(exitCode, duration, cmdName) {
         const ok = exitCode === 0;
         const now = new Date();
-
-        if (cmdName && config?.commands?.[cmdName]) sbCmd.textContent = config.commands[cmdName].title;
+        if (cmdName && config?.commands?.[cmdName]) { sbCmd.textContent = config.commands[cmdName].title; }
         sbResult.textContent = ok ? `✓ exit 0` : `✗ exit ${exitCode}`;
         sbResult.className = `sb-item ${ok ? "ok" : "fail"}`;
         sbDuration.textContent = duration == null ? "" : `${duration}s`;
@@ -375,12 +395,11 @@
     function updateRunBtnTooltip(cmdName) {
         if (!cmdName) { return; }
         const saved = localStorage.getItem(`toolkit-lastrun-${cmdName}`);
-        if (!saved) { runBtn.title = "Run command (Ctrl+Enter)"; return; }
+        if (!saved) { runBtn.title = kbd("Run command (Ctrl+Enter)"); return; }
         const { exitCode, duration, time } = JSON.parse(saved);
         const d = new Date(time);
-
         const t = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        runBtn.title = `Run command (Ctrl+Enter)  ·  Last: ${exitCode === 0 ? "✓" : "✗"} ${duration}s @ ${t}`;
+        runBtn.title = `${kbd("Run command (Ctrl+Enter)")}  ·  Last: ${exitCode === 0 ? "✓" : "✗"} ${duration}s @ ${t}`;
     }
     // Config collapse
     let configCollapsed = localStorage.getItem("toolkit-config-collapsed") === "1";
@@ -389,8 +408,8 @@
         configEl.classList.toggle("collapsed", configCollapsed);
         collapseConfigBtn.classList.toggle("collapsed", configCollapsed);
         collapseConfigBtn.title = configCollapsed
-            ? "Expand config panel (Ctrl+Shift+B)"
-            : "Collapse config panel (Ctrl+Shift+B)";
+            ? kbd("Expand config panel (Ctrl+Shift+B)")
+            : kbd("Collapse config panel (Ctrl+Shift+B)");
         collapseConfigBtn.setAttribute("aria-expanded", String(!configCollapsed));
     }
     collapseConfigBtn.addEventListener("click", () => {
@@ -409,8 +428,8 @@
         configEl.classList.toggle("expanded", outputCollapsed);
         collapseOutBtn.classList.toggle("collapsed", outputCollapsed);
         collapseOutBtn.title = outputCollapsed
-            ? "Show output panel (Ctrl+Alt+B)"
-            : "Expand config / collapse output (Ctrl+Alt+B)";
+            ? kbd("Show output panel (Ctrl+Alt+B)")
+            : kbd("Expand config / collapse output (Ctrl+Alt+B)");
         collapseOutBtn.setAttribute("aria-expanded", String(!outputCollapsed));
     }
     collapseOutBtn.addEventListener("click", () => {
@@ -446,8 +465,9 @@
     // Theme
     function initTheme() {
         const saved = localStorage.getItem("toolkit-theme");
-        if (saved === "dark" || (!saved && matchMedia("(prefers-color-scheme:dark)").matches))
+        if (saved === "dark" || (!saved && matchMedia("(prefers-color-scheme:dark)").matches)) {
             document.body.classList.add("dark");
+        }
         syncThemeBtn();
     }
     function syncThemeBtn() {
@@ -472,15 +492,16 @@
         }
         activeCmd = null;
         document.body.classList.remove("fullscreen-mode", "hide-run-controls");
-        for (const b of navEl.querySelectorAll(".cmd-btn")) b.classList.remove("active");
+        for (const b of navEl.querySelectorAll(".cmd-btn")) { b.classList.remove("active"); }
         configEl.innerHTML = welcomeHTML;
+        syncShortcutsPanel();
         ctrlEl.dataset.hidden = "";
         outEl.innerHTML = "";
-        runBtn.title = "Run command (Ctrl+Enter)";
+        runBtn.title = kbd("Run command (Ctrl+Enter)");
         document.title = BASE_TITLE;
         hideSearch();
         clearStatusBar();
-        for (const key of Object.keys(cmdLineCounts)) resetCmdBadge(key);
+        for (const key of Object.keys(cmdLineCounts)) { resetCmdBadge(key); }
         lastClearedOutput = null;
         lastClearedBadges = null;
         lastClearedStatusBar = null;
@@ -502,9 +523,7 @@
         fetch("/api/status")
             .then(r => r.json())
             .then(data => {
-                if (data.busy) {
-                    appendLine(`\u26a0 Another client is running: ${data.command}`, "line-warn");
-                }
+                if (data.busy) { appendLine(`\u26a0 Another client is running: ${data.command}`, "line-warn"); }
             })
             .catch(() => { });
     }
@@ -517,6 +536,7 @@
             meta.textContent = config ? `${config.platform} \u2022 ${config.project_root}` : "Connected";
             loadConfig();
             checkBusy();
+            refreshProjectSwitcher();
         };
         ws.onclose = () => {
             wsDot.className = "dot off";
@@ -540,7 +560,7 @@
                 sbProgress.textContent = "";
                 sbProgress.className = "sb-item";
                 startRunTimer();
-                if (autoClearEnabled) resetCmdBadge(runningCmd);
+                if (autoClearEnabled) { resetCmdBadge(runningCmd); }
                 document.title = `\u25b6 Running... \u2013 ${BASE_TITLE}`;
                 appendLine(msg.data, "line-cmd");
                 appendLine("\u2500".repeat(56), "line-head");
@@ -607,30 +627,28 @@
     }
     // Notifications
     function requestNotifyPermission() {
-        if ("Notification" in globalThis && Notification.permission === "default")
-            Notification.requestPermission();
+        if ("Notification" in globalThis && Notification.permission === "default") { Notification.requestPermission(); }
     }
     function showNotification(title, body) {
         if (document.hasFocus()) { return; }
-        if ("Notification" in globalThis && Notification.permission === "granted")
-            new Notification(title, { body, icon: "/favicon.ico" });
+        if ("Notification" in globalThis && Notification.permission === "granted") { new Notification(title, { body, icon: "/favicon.ico" }); }
     }
     // Output
     function classifyLine(t) {
-        if (t.includes("✔") || t.includes("[OK]")) return "line-ok";
-        if (t.includes("⚠") || t.includes("[WARN]")) return "line-warn";
-        if (t.includes("✘") || t.includes("FAIL") || t.includes("[ERROR]")) return "line-err";
-        if (t.includes("===") || t.includes("---")) return "line-head";
-        if (t.trimStart().startsWith("$")) return "line-cmd";
+        if (t.includes("✔") || t.includes("[OK]")) { return "line-ok"; }
+        if (t.includes("⚠") || t.includes("[WARN]")) { return "line-warn"; }
+        if (t.includes("✘") || t.includes("FAIL") || t.includes("[ERROR]")) { return "line-err"; }
+        if (t.includes("===") || t.includes("---")) { return "line-head"; }
+        if (t.trimStart().startsWith("$")) { return "line-cmd"; }
         return "line-info";
     }
     function appendLine(text, cls) {
         const div = document.createElement("div");
-        if (cls) div.className = cls;
+        if (cls) { div.className = cls; }
         div.textContent = text;
         outEl.appendChild(div);
-        if (autoScroll) outEl.scrollTop = outEl.scrollHeight;
-        if (searchActive && searchQuery) rehighlightLine(div);
+        if (autoScroll) { outEl.scrollTop = outEl.scrollHeight; }
+        if (searchActive && searchQuery) { rehighlightLine(div); }
         const pm = text.match(/\[(\d+)\/(\d+)\]/);
         if (pm) {
             sbProgress.textContent = `${pm[1]} / ${pm[2]}`;
@@ -699,9 +717,7 @@
         document.body.classList.toggle("fullscreen-mode", !!config.commands[name]?.fullscreen);
         document.body.classList.toggle("hide-run-controls", !!config.commands[name]?.hide_run_controls);
         for (const key of Object.keys(localStorage)) {
-            if (key.startsWith("toolkit-group-collapsed-")) {
-                localStorage.removeItem(key);
-            }
+            if (key.startsWith("toolkit-group-collapsed-")) { localStorage.removeItem(key); }
         }
         activeCmd = name;
         if (configCollapsed) {
@@ -709,8 +725,9 @@
             localStorage.setItem("toolkit-config-collapsed", "0");
             syncConfigCollapse();
         }
-        for (const b of navEl.querySelectorAll(".cmd-btn"))
+        for (const b of navEl.querySelectorAll(".cmd-btn")) {
             b.classList.toggle("active", b.dataset.cmd === name);
+        }
         renderConfigPanel(config.commands[name], name);
         configEl.scrollTop = 0;
         if (filterVisible) {
@@ -733,7 +750,7 @@
         const cb = frag.querySelector("input");
         cb.id = id;
         cb.dataset.flag = opt.flag;
-        if (opt.default) cb.checked = true;
+        if (opt.default) { cb.checked = true; }
         if (opt.disabled) {
             cb.disabled = true;
             row.classList.add("opt-disabled");
@@ -756,13 +773,9 @@
         const header = frag.querySelector(".group-header");
         const labelEl = header.querySelector(".group-label");
         labelEl.textContent = grp.label;
-        if (grp.type === "dynamic_folders" || (grp.options && grp.options.length > 1)) {
-            groupEl.classList.add("collapsible");
-        }
+        if (grp.type === "dynamic_folders" || (grp.options && grp.options.length > 1)) { groupEl.classList.add("collapsible"); }
         const stateKey = `toolkit-group-collapsed-${name}-${grp.label}`;
-        if (localStorage.getItem(stateKey) === "1") {
-            groupEl.classList.add("collapsed");
-        }
+        if (localStorage.getItem(stateKey) === "1") { groupEl.classList.add("collapsed"); }
         labelEl.addEventListener("click", () => {
             const nowCollapsed = groupEl.classList.toggle("collapsed");
             localStorage.setItem(stateKey, nowCollapsed ? "1" : "0");
@@ -806,11 +819,11 @@
         if (!cmd.presets?.length) { return; }
         const currentFlags = new Set();
         for (const cb of configEl.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)')) {
-            if (cb.dataset.flag.startsWith("--exclude ")) continue;
+            if (cb.dataset.flag.startsWith("--exclude ")) { continue; }
             currentFlags.add(cb.dataset.flag);
         }
         for (const sel of configEl.querySelectorAll("select:not(:disabled)")) {
-            if (sel.value) currentFlags.add(sel.value);
+            if (sel.value) { currentFlags.add(sel.value); }
         }
         for (const btn of configEl.querySelectorAll(".preset-btn")) {
             const preset = cmd.presets[btn.dataset.pi];
@@ -909,9 +922,7 @@
     function groupCommands(commands = []) {
         const groups = {};
         for (const item of commands) {
-            if (!groups[item.mode]) {
-                groups[item.mode] = [];
-            }
+            if (!groups[item.mode]) { groups[item.mode] = []; }
             groups[item.mode].push(item);
         }
         return groups;
@@ -948,25 +959,23 @@
         code.textContent = cleanCommand(item.cmd);
         code.title = buildCmdTooltip(item.cmd);
         row.appendChild(code);
-        if (!item.disabled) {
-            row.appendChild(createCopyButton(code.textContent));
-        }
+        if (!item.disabled) { row.appendChild(createCopyButton(code.textContent)); }
         return row;
     }
     function buildCmdTooltip(cmd) {
         const tips = [];
-        if (cmd.includes("-d android")) tips.push("-d android  = target device: any Android device/emulator");
-        else if (cmd.includes("-d ios")) tips.push("-d ios      = target device: any iOS device/simulator");
-        else if (cmd.includes("-d chrome")) tips.push("-d chrome   = target device: Chrome browser (web)");
-        else if (cmd.includes("-d windows")) tips.push("-d windows  = target device: Windows desktop");
-        else if (cmd.includes("-d macos")) tips.push("-d macos    = target device: macOS desktop");
-        else if (cmd.includes("-d linux")) tips.push("-d linux    = target device: Linux desktop");
+        if (cmd.includes("-d android")) { tips.push("-d android  = target device: any Android device/emulator"); }
+        else if (cmd.includes("-d ios")) { tips.push("-d ios      = target device: any iOS device/simulator"); }
+        else if (cmd.includes("-d chrome")) { tips.push("-d chrome   = target device: Chrome browser (web)"); }
+        else if (cmd.includes("-d windows")) { tips.push("-d windows  = target device: Windows desktop"); }
+        else if (cmd.includes("-d macos")) { tips.push("-d macos    = target device: macOS desktop"); }
+        else if (cmd.includes("-d linux")) { tips.push("-d linux    = target device: Linux desktop"); }
         tips.push("-d          = short for --device-id");
-        if (cmd.includes("--flavor")) tips.push("--flavor    = build flavor (native Android/iOS/macOS only)");
-        if (cmd.includes("--dart-define")) tips.push("--dart-define = pass compile-time constant to Dart code");
-        if (cmd.includes("--debug")) tips.push("--debug     = debug mode (hot reload, assertions on)");
-        if (cmd.includes("--release")) tips.push("--release   = release mode (optimized, no debugging)");
-        if (cmd.includes("--profile")) tips.push("--profile   = profile mode (for performance analysis)");
+        if (cmd.includes("--flavor")) { tips.push("--flavor    = build flavor (native Android/iOS/macOS only)"); }
+        if (cmd.includes("--dart-define")) { tips.push("--dart-define = pass compile-time constant to Dart code"); }
+        if (cmd.includes("--debug")) { tips.push("--debug     = debug mode (hot reload, assertions on)"); }
+        if (cmd.includes("--release")) { tips.push("--release   = release mode (optimized, no debugging)"); }
+        if (cmd.includes("--profile")) { tips.push("--profile   = profile mode (for performance analysis)"); }
         return tips.join("\n");
     }
     function cleanCommand(cmd) {
@@ -1023,8 +1032,8 @@
                 btn.dataset.pi = i;
                 btn.textContent = p.label;
                 btn.title = p.flags.join(" ") || "No flags = full reset";
-                if (p.default) btn.classList.add("active");
-                if (p.disabled) btn.disabled = true;
+                if (p.default) { btn.classList.add("active"); }
+                if (p.disabled) { btn.disabled = true; }
                 presetsEl.appendChild(btn);
             });
             configEl.appendChild(frag);
@@ -1037,19 +1046,22 @@
             configEl.appendChild(frag);
         }
         cmd.groups.forEach((grp, gi) => configEl.appendChild(renderGroupDOM(grp, name, gi)));
-        if (cmd.groups.length > 0) {
-            configEl.appendChild($("tpl-reset-row").content.cloneNode(true));
-        }
-        for (const el of configEl.querySelectorAll("input,select"))
+        if (cmd.groups.length > 0) { configEl.appendChild($("tpl-reset-row").content.cloneNode(true)); }
+        for (const el of configEl.querySelectorAll("input,select")) {
             el.addEventListener("change", () => { syncPreview(); syncPresetActive(cmd); syncBuildConstraints(); syncBackupConstraints(); });
-        for (const btn of configEl.querySelectorAll(".check-all-btn:not(.master-btn)"))
+        }
+        for (const btn of configEl.querySelectorAll(".check-all-btn:not(.master-btn)")) {
             btn.addEventListener("click", () => setGroupChecked(btn.dataset.gi, btn.dataset.cmd, true));
-        for (const btn of configEl.querySelectorAll(".uncheck-all-btn:not(.master-btn)"))
+        }
+        for (const btn of configEl.querySelectorAll(".uncheck-all-btn:not(.master-btn)")) {
             btn.addEventListener("click", () => setGroupChecked(btn.dataset.gi, btn.dataset.cmd, false));
-        for (const btn of configEl.querySelectorAll(".master-btn.check-all-btn"))
+        }
+        for (const btn of configEl.querySelectorAll(".master-btn.check-all-btn")) {
             btn.addEventListener("click", () => setAllChecked(true));
-        for (const btn of configEl.querySelectorAll(".master-btn.uncheck-all-btn"))
+        }
+        for (const btn of configEl.querySelectorAll(".master-btn.uncheck-all-btn")) {
             btn.addEventListener("click", () => setAllChecked(false));
+        }
         for (const btn of configEl.querySelectorAll(".preset-btn")) {
             btn.addEventListener("click", () => {
                 const preset = cmd.presets[btn.dataset.pi];
@@ -1068,7 +1080,7 @@
                     const newValue = match ? match.value : (sel.options[0]?.value ?? "");
                     sel.value = newValue;
                 }
-                for (const b of configEl.querySelectorAll(".preset-btn")) b.classList.remove("active");
+                for (const b of configEl.querySelectorAll(".preset-btn")) { b.classList.remove("active"); }
                 btn.classList.add("active");
                 syncPreview();
                 syncBuildConstraints();
@@ -1078,15 +1090,15 @@
         function _resetCheckboxGroup(grp) {
             for (const opt of grp.options) {
                 const cb = configEl.querySelector(`input[data-flag="${CSS.escape(opt.flag)}"]`);
-                if (cb) cb.checked = !!opt.default;
+                if (cb) { cb.checked = !!opt.default; }
             }
         }
         function _resetSelectGroup(grp) {
             const defaultOpt = grp.options.find(o => o.default);
             const targetValue = defaultOpt ? defaultOpt.flag : (grp.options[0]?.flag ?? "");
             for (const sel of configEl.querySelectorAll("select")) {
-                if (!Array.from(sel.options).some(o => o.value === targetValue)) continue;
-                if (sel.value === targetValue) continue;
+                if (!Array.from(sel.options).some(o => o.value === targetValue)) { continue; }
+                if (sel.value === targetValue) { continue; }
                 sel.value = targetValue;
                 sel.dispatchEvent(new Event("change", { bubbles: true }));
             }
@@ -1098,13 +1110,13 @@
             }
         }
         function _resetGroup(grp) {
-            if (grp.type === "checkboxes") _resetCheckboxGroup(grp);
-            else if (grp.type === "select") _resetSelectGroup(grp);
-            else if (grp.type === "dynamic_folders") _resetDynamicFoldersGroup();
+            if (grp.type === "checkboxes") { _resetCheckboxGroup(grp); }
+            else if (grp.type === "select") { _resetSelectGroup(grp); }
+            else if (grp.type === "dynamic_folders") { _resetDynamicFoldersGroup(); }
         }
         if (cmd.groups.length > 0) {
             $("config-reset-btn").addEventListener("click", () => {
-                for (const grp of cmd.groups) _resetGroup(grp);
+                for (const grp of cmd.groups) { _resetGroup(grp); }
                 syncPreview();
                 syncPresetActive(activeConfig);
                 syncBuildConstraints();
@@ -1163,7 +1175,7 @@
         syncPreview();
     }
     function normalizeFolder(f) {
-        if (typeof f === "string") return { name: f, is_dir: true, default_excluded: false };
+        if (typeof f === "string") { return { name: f, is_dir: true, default_excluded: false }; }
         return { is_dir: true, default_excluded: false, ...f };
     }
     function appendHint(groupEl, text) {
@@ -1211,11 +1223,9 @@
         if (!modeSelect) { return; }
         const releaseOnly = anyChecked && !effectiveModeRelevant;
         for (const opt of modeSelect.options) {
-            if (opt.value.includes("debug")) opt.disabled = releaseOnly;
+            if (opt.value.includes("debug")) { opt.disabled = releaseOnly; }
         }
-        if (releaseOnly && modeSelect.value.includes("debug")) {
-            modeSelect.selectedIndex = 0;
-        }
+        if (releaseOnly && modeSelect.value.includes("debug")) { modeSelect.selectedIndex = 0; }
         modeSelect.disabled = releaseOnly;
         modeSelect.title = releaseOnly ? "Web and IPA are always built in release mode" : "";
         modeSelect.closest(".group")?.classList.toggle("group-disabled", releaseOnly);
@@ -1252,14 +1262,15 @@
         }
     }
     function setAllChecked(checked) {
-        for (const cb of configEl.querySelectorAll('input[type="checkbox"]:not(:disabled)'))
+        for (const cb of configEl.querySelectorAll('input[type="checkbox"]:not(:disabled)')) {
             cb.checked = checked;
+        }
         syncPreview();
         syncPresetActive(activeConfig);
     }
     function setGroupChecked(gi, cmdName, checked) {
         for (const cb of configEl.querySelectorAll('input[type="checkbox"]:not(:disabled)')) {
-            if (cb.id.startsWith(`opt_${cmdName}_g${gi}_`)) cb.checked = checked;
+            if (cb.id.startsWith(`opt_${cmdName}_g${gi}_`)) { cb.checked = checked; }
         }
         syncPreview();
         syncPresetActive(activeConfig);
@@ -1297,23 +1308,24 @@
             const parts = cb.dataset.flag.split(" ");
             if (parts.length === 2 && parts[0].startsWith("-")) {
                 const key = parts[0];
-                if (!grouped[key]) grouped[key] = [];
+                if (!grouped[key]) { grouped[key] = []; }
                 grouped[key].push(parts[1]);
             } else {
                 simple.push(...parts);
             }
         }
         const args = [];
-        for (const [key, vals] of Object.entries(grouped)) args.push(key, ...vals);
+        for (const [key, vals] of Object.entries(grouped)) { args.push(key, ...vals); }
         args.push(...simple);
-        for (const sel of configEl.querySelectorAll("select:not(:disabled)"))
-            if (sel.value) args.push(...sel.value.split(" "));
+        for (const sel of configEl.querySelectorAll("select:not(:disabled)")) {
+            if (sel.value) { args.push(...sel.value.split(" ")); }
+        }
         return args;
     }
     function buildDisplayArgs(args) {
         const inject = config?.commands?.[activeCmd]?.inject_flags ?? [];
         const display = [...args];
-        for (const f of inject) if (!display.includes(f)) display.push(f);
+        for (const f of inject) { if (!display.includes(f)) { display.push(f); } }
         return display;
     }
     function syncPreview() {
@@ -1327,7 +1339,7 @@
     // Generic confirm helper
     function askConfirm({ title, message, preview, okLabel, cancelLabel, onOk, onCancel }) {
         const titleEl = $("confirm-title");
-        if (titleEl) titleEl.textContent = title ?? "Confirm (Enter)";
+        if (titleEl) { titleEl.textContent = title ?? "Confirm (Enter)"; }
         confirmMsg.textContent = message ?? "";
         if (preview) {
             confirmPreview.textContent = preview;
@@ -1356,8 +1368,7 @@
     }
     confirmDialog.addEventListener("click", (e) => {
         const rect = confirmDialog.getBoundingClientRect();
-        const outside = e.clientX < rect.left || e.clientX > rect.right
-            || e.clientY < rect.top || e.clientY > rect.bottom;
+        const outside = e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom;
         if (outside) { confirmCancel.click(); }
     });
     // Run
@@ -1365,7 +1376,7 @@
         if (autoClearEnabled && outEl.hasChildNodes()) {
             outEl.innerHTML = "";
             clearStatusBar();
-            for (const key of Object.keys(cmdLineCounts)) resetCmdBadge(key);
+            for (const key of Object.keys(cmdLineCounts)) { resetCmdBadge(key); }
         }
         lastClearedOutput = null;
         lastClearedBadges = null;
@@ -1379,8 +1390,9 @@
         ws.send(JSON.stringify({ action: "run", command, args }));
     }
     function setRunningBtn(cmdName, active) {
-        for (const b of navEl.querySelectorAll(".cmd-btn"))
+        for (const b of navEl.querySelectorAll(".cmd-btn")) {
             b.classList.toggle("running", active && b.dataset.cmd === cmdName);
+        }
     }
     runBtn.addEventListener("click", () => {
         if (!activeCmd || ws?.readyState !== 1 || running) { return; }
@@ -1417,11 +1429,11 @@
                 };
                 outEl.innerHTML = "";
                 document.title = BASE_TITLE;
-                if (searchActive) clearSearch();
+                if (searchActive) { clearSearch(); }
                 clearStatusBar();
-                for (const key of Object.keys(cmdLineCounts)) resetCmdBadge(key);
+                for (const key of Object.keys(cmdLineCounts)) { resetCmdBadge(key); }
                 runBtn.title = "Run command (Ctrl+Enter)";
-                if (activeCmd) localStorage.removeItem(`toolkit-lastrun-${activeCmd}`);
+                if (activeCmd) { localStorage.removeItem(`toolkit-lastrun-${activeCmd}`); }
                 syncButtons();
             },
         });
@@ -1430,7 +1442,6 @@
     function updateExportTooltip() {
         if (!outEl.hasChildNodes()) { exportBtn.title = "Export output as .txt"; return; }
         const now = new Date();
-
         const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
         exportBtn.title = `Export as toolkit-output-${ts}.txt`;
     }
@@ -1443,7 +1454,6 @@
             .join("\n");
         if (!lines.trim()) { return; }
         const now = new Date();
-
         const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
         const filename = `toolkit-output-${ts}.txt`;
         askConfirm({
@@ -1525,7 +1535,7 @@
         }
         const re = new RegExp(escRegex(searchQuery), "gi");
         for (const div of outEl.querySelectorAll("div")) {
-            if (!div.dataset.raw) div.dataset.raw = div.textContent;
+            if (!div.dataset.raw) { div.dataset.raw = div.textContent; }
             const raw = div.dataset.raw;
             const matches = [...raw.matchAll(re)];
             if (!matches.length) { div.textContent = raw; continue; }
@@ -1537,14 +1547,14 @@
             }
             div.innerHTML = `${html}${escHtml(raw.slice(last))}`;
         }
-        if (searchMatches.length > 0 && searchIndex < 0) searchIndex = 0;
+        if (searchMatches.length > 0 && searchIndex < 0) { searchIndex = 0; }
         updateSearchCount();
         updateActiveHighlight();
     }
     function rehighlightLine(div) {
         if (!searchQuery) { return; }
         const re = new RegExp(escRegex(searchQuery), "gi");
-        if (!div.dataset.raw) div.dataset.raw = div.textContent;
+        if (!div.dataset.raw) { div.dataset.raw = div.textContent; }
         const raw = div.dataset.raw;
         const matches = [...raw.matchAll(re)];
         if (!matches.length) { return; }
@@ -1563,7 +1573,7 @@
             : "No results";
     }
     function updateActiveHighlight() {
-        for (const mark of outEl.querySelectorAll("mark.sh")) mark.classList.remove("sh-active");
+        for (const mark of outEl.querySelectorAll("mark.sh")) { mark.classList.remove("sh-active"); }
         if (searchIndex < 0 || searchIndex >= searchMatches.length) { return; }
         const first = searchMatches[searchIndex].querySelector("mark.sh");
         if (first) {
@@ -1588,12 +1598,12 @@
     searchPrev.addEventListener("click", () => searchStep(-1));
     searchClose.addEventListener("click", hideSearch);
     searchToggleBtn.addEventListener("click", () => {
-        if (searchActive) hideSearch();
+        if (searchActive) { hideSearch(); }
         else showSearch();
     });
     searchInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") { e.preventDefault(); searchStep(e.shiftKey ? -1 : +1); }
-        if (e.key === "Escape") hideSearch();
+        if (e.key === "Escape") { hideSearch(); }
     });
     function setRunBtnState(isRunning) {
         const tpl = isRunning ? "tpl-icon-run-spin" : "tpl-icon-run-idle";
@@ -1634,10 +1644,10 @@
         runBtn.click();
     }
     function handleCtrlL() {
-        if (!clearBtn.disabled) clearBtn.click();
+        if (!clearBtn.disabled) { clearBtn.click(); }
     }
     function handleCtrlF() {
-        if (outEl.hasChildNodes()) showSearch();
+        if (outEl.hasChildNodes()) { showSearch(); }
     }
     function handleCtrlB() {
         sidebarCollapseBtn.click();
@@ -1656,9 +1666,7 @@
             sbProgress.className = lastClearedStatusBar.progressClass;
             sbTime.textContent = lastClearedStatusBar.time;
             sbTime.title = lastClearedStatusBar.timeTitle;
-            if (lastClearedStatusBar.timeLastRun) {
-                sbTime.dataset.lastrun = lastClearedStatusBar.timeLastRun;
-            }
+            if (lastClearedStatusBar.timeLastRun) { sbTime.dataset.lastrun = lastClearedStatusBar.timeLastRun; }
             lastClearedStatusBar = null;
         }
         if (lastClearedBadges) {
@@ -1672,8 +1680,8 @@
             updateCmdBadge(activeCmd);
         }
         updateSbLines();
-        if (searchActive && searchQuery) renderSearchHighlights();
-        if (activeCmd) updateRunBtnTooltip(activeCmd);
+        if (searchActive && searchQuery) { renderSearchHighlights(); }
+        if (activeCmd) { updateRunBtnTooltip(activeCmd); }
         syncButtons();
         undoBtn.classList.add("restored");
         setTimeout(() => undoBtn.classList.remove("restored"), 600);
@@ -1699,7 +1707,7 @@
             const altMatch = !!s.alt === e.altKey;
             const keyMatch = e.key.toLowerCase() === s.key.toLowerCase();
             if (keyMatch && ctrlMatch && shiftMatch && altMatch) {
-                if (s.key !== "Escape") e.preventDefault();
+                if (s.key !== "Escape") { e.preventDefault(); }
                 s.handler();
                 return;
             }
@@ -1717,7 +1725,7 @@
                 fetch("/api/restart", { method: "POST" })
                     .then(r => r.json())
                     .then(d => {
-                        if (!d.ok) appendLine(`⚠ Cannot restart: ${d.reason}`, "line-warn");
+                        if (!d.ok) { appendLine(`⚠ Cannot restart: ${d.reason}`, "line-warn"); }
                     })
                     .catch(() => { });
             }
@@ -1725,10 +1733,11 @@
     });
     // Project switcher
     const projectSwitcher = $("project-switcher");
-    if (projectSwitcher) {
+    function refreshProjectSwitcher() {
+        if (!projectSwitcher) { return; }
         fetch("/api/projects").then(r => r.json()).then(d => {
             const list = d?.projects || [];
-            if (list.length < 2) { return; }
+            if (list.length < 2) { projectSwitcher.hidden = true; return; }
             projectSwitcher.innerHTML = "";
             list.forEach(p => {
                 const opt = document.createElement("option");
@@ -1738,21 +1747,23 @@
                 projectSwitcher.appendChild(opt);
             });
             projectSwitcher.hidden = false;
-            projectSwitcher.addEventListener("change", () => {
-                const id = projectSwitcher.value;
-                fetch("/api/projects/select", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id })
-                })
-                    .then(r => r.json())
-                    .then(res => {
-                        if (res?.ok) { location.reload(); }
-                        else { appendLine(`\u26a0 Cannot switch: ${res?.reason || "error"}`, "line-warn"); }
-                    })
-                    .catch(() => { appendLine("\u26a0 Switch failed", "line-warn"); });
-            });
         }).catch(() => { });
+    }
+    if (projectSwitcher) {
+        projectSwitcher.addEventListener("change", () => {
+            const id = projectSwitcher.value;
+            fetch("/api/projects/select", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id })
+            })
+                .then(r => r.json())
+                .then(res => {
+                    if (res?.ok) { location.reload(); }
+                    else { appendLine(`⚠ Cannot switch: ${res?.reason || "error"}`, "line-warn"); }
+                })
+                .catch(() => { appendLine("⚠ Switch failed", "line-warn"); });
+        });
     }
     // Init
     function tick() {
