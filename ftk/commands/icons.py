@@ -261,6 +261,14 @@ def _gen_ios(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil_dra
     info(f"-> {written}/{len(IOS_ICONS)} iOS icons in {out_dir}")
 
 
+ICON_LAUNCHER = "ic_launcher.png"
+ICON_LAUNCHER_ROUND = "ic_launcher_round.png"
+ICON_LAUNCHER_FOREGROUND = "ic_launcher_foreground.png"
+ICON_NOTIFICATION = "ic_notification.png"
+ICON_LAUNCHER_XML = "ic_launcher.xml"
+ICON_LAUNCHER_ROUND_XML = "ic_launcher_round.xml"
+COLORS_XML = "colors.xml"
+
 def _gen_android(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil_draw) -> None:
     info("[Android] Generating icons...")
     src = _load_source(root, flavor, pil_image)
@@ -268,25 +276,25 @@ def _gen_android(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil
     info("mipmap icons:")
     for density in ANDROID_DENSITIES:
         out = os.path.join(base_dir, f"mipmap-{density.folder}")
-        _save_png(_make_launcher(pil_image, src, density.px),        os.path.join(out, "ic_launcher.png"),            only_new)
-        _save_png(_make_round(pil_image, pil_draw, src, density.px), os.path.join(out, "ic_launcher_round.png"),      only_new)
-        _save_png(_make_adaptive_fg(pil_image, src, density.px),     os.path.join(out, "ic_launcher_foreground.png"), only_new)
+        _save_png(_make_launcher(pil_image, src, density.px),        os.path.join(out, ICON_LAUNCHER),            only_new)
+        _save_png(_make_round(pil_image, pil_draw, src, density.px), os.path.join(out, ICON_LAUNCHER_ROUND),      only_new)
+        _save_png(_make_adaptive_fg(pil_image, src, density.px),     os.path.join(out, ICON_LAUNCHER_FOREGROUND), only_new)
     info("drawable icons:")
     for density in ANDROID_DENSITIES:
         out = os.path.join(base_dir, f"drawable-{density.folder}")
-        _save_png(_make_launcher(pil_image, src, density.px),        os.path.join(out, "ic_launcher.png"),            only_new)
-        _save_png(_make_round(pil_image, pil_draw, src, density.px), os.path.join(out, "ic_launcher_round.png"),      only_new)
-        _save_png(_make_adaptive_fg(pil_image, src, density.px),     os.path.join(out, "ic_launcher_foreground.png"), only_new)
+        _save_png(_make_launcher(pil_image, src, density.px),        os.path.join(out, ICON_LAUNCHER),            only_new)
+        _save_png(_make_round(pil_image, pil_draw, src, density.px), os.path.join(out, ICON_LAUNCHER_ROUND),      only_new)
+        _save_png(_make_adaptive_fg(pil_image, src, density.px),     os.path.join(out, ICON_LAUNCHER_FOREGROUND), only_new)
     info("drawable notification icons:")
     for density, px in NOTIFICATION_SIZES.items():
         out = os.path.join(base_dir, f"drawable-{density}")
-        _save_png(_make_notification(pil_image, src, px), os.path.join(out, "ic_notification.png"), only_new)
+        _save_png(_make_notification(pil_image, src, px), os.path.join(out, ICON_NOTIFICATION), only_new)
     info("XML files:")
     any_dir = os.path.join(base_dir, "mipmap-anydpi-v26")
     xml = _adaptive_xml("@mipmap/ic_launcher_foreground", "@color/ic_launcher_background")
-    _write_xml(os.path.join(any_dir, "ic_launcher.xml"),       xml, only_new)
-    _write_xml(os.path.join(any_dir, "ic_launcher_round.xml"), xml, only_new)
-    _write_xml(os.path.join(base_dir, "values", "colors.xml"),
+    _write_xml(os.path.join(any_dir, ICON_LAUNCHER_XML),       xml, only_new)
+    _write_xml(os.path.join(any_dir, ICON_LAUNCHER_ROUND_XML), xml, only_new)
+    _write_xml(os.path.join(base_dir, "values", COLORS_XML),
                _colors_xml(flavor.notification_color), only_new)
     info(f"-> Android icons in {base_dir}")
 
@@ -443,13 +451,13 @@ def _verify_ios(root: str, flavor: FlavorConfig) -> bool:
 def _verify_android(root: str, flavor: FlavorConfig) -> bool:
     base = _p(root, "android", "app", "src", flavor.name, "res")
     paths = [
-        (os.path.join(base, "mipmap-xxxhdpi",    "ic_launcher.png"),            "mipmap-xxxhdpi/ic_launcher.png"),
-        (os.path.join(base, "mipmap-xxxhdpi",    "ic_launcher_round.png"),      "mipmap-xxxhdpi/ic_launcher_round.png"),
-        (os.path.join(base, "mipmap-xxxhdpi",    "ic_launcher_foreground.png"), "mipmap-xxxhdpi/ic_launcher_foreground.png"),
-        (os.path.join(base, "mipmap-anydpi-v26", "ic_launcher.xml"),            "mipmap-anydpi-v26/ic_launcher.xml"),
-        (os.path.join(base, "mipmap-anydpi-v26", "ic_launcher_round.xml"),      "mipmap-anydpi-v26/ic_launcher_round.xml"),
-        (os.path.join(base, "values",            "colors.xml"),                 "values/colors.xml"),
-        (os.path.join(base, "drawable-xxxhdpi",  "ic_notification.png"),        "drawable-xxxhdpi/ic_notification.png"),
+        (os.path.join(base, "mipmap-xxxhdpi",    ICON_LAUNCHER),            f"mipmap-xxxhdpi/{ICON_LAUNCHER}"),
+        (os.path.join(base, "mipmap-xxxhdpi",    ICON_LAUNCHER_ROUND),      f"mipmap-xxxhdpi/{ICON_LAUNCHER_ROUND}"),
+        (os.path.join(base, "mipmap-xxxhdpi",    ICON_LAUNCHER_FOREGROUND), f"mipmap-xxxhdpi/{ICON_LAUNCHER_FOREGROUND}"),
+        (os.path.join(base, "mipmap-anydpi-v26", ICON_LAUNCHER_XML),            f"mipmap-anydpi-v26/{ICON_LAUNCHER_XML}"),
+        (os.path.join(base, "mipmap-anydpi-v26", ICON_LAUNCHER_ROUND_XML),      f"mipmap-anydpi-v26/{ICON_LAUNCHER_ROUND_XML}"),
+        (os.path.join(base, "values",            COLORS_XML),                 f"values/{COLORS_XML}"),
+        (os.path.join(base, "drawable-xxxhdpi",  ICON_NOTIFICATION),        f"drawable-xxxhdpi/{ICON_NOTIFICATION}"),
     ]
     return all(_check(p, l) for p, l in paths)
 

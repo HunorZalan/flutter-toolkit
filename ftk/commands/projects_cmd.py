@@ -1,5 +1,6 @@
 """Manage the global flutter-toolkit project registry."""
 from __future__ import annotations
+
 import argparse
 import os
 import shutil
@@ -8,13 +9,17 @@ import sys
 import tempfile
 import time
 
-from ftk.common import C, header, ok, warn, err, info, init_colours
+from ftk.common import C, err, header, info, init_colours, ok, warn
 from ftk.config import ProjectConfig
 from ftk.projects import (
-    list_projects, add_project, remove_project, find_project,
-    set_last_project_id, clear_last_project, registry_file,
+    add_project,
+    clear_last_project,
+    find_project,
+    list_projects,
+    registry_file,
+    remove_project,
+    set_last_project_id,
 )
-
 
 # ---------------------------------------------------------------------------
 # Service helpers
@@ -40,13 +45,12 @@ def _create_windows_task(entry) -> bool:
         return False
 
     project_dir = entry.root
-    project_id  = entry.id
-    ftk_dir     = os.path.join(project_dir, ".ftk")
+    project_id = entry.id
+    ftk_dir = os.path.join(project_dir, ".ftk")
     os.makedirs(ftk_dir, exist_ok=True)
 
     # VBS silent launcher (no console window)
     wrapper = os.path.join(ftk_dir, "start_server_bg.vbs")
-    run_arg = f'"{ftk}" --project {project_id} server'
     with open(wrapper, "w", encoding="ascii") as f:
         f.write('Dim shell\n')
         f.write('Set shell = CreateObject("WScript.Shell")\n')
@@ -82,11 +86,13 @@ def _create_windows_task(entry) -> bool:
 
     task = "FlutterToolkitServer"
     # Remove old task if present
-    subprocess.run(["schtasks", "/End",    "/TN", task], capture_output=True)
+    subprocess.run(["schtasks", "/End", "/TN", task], capture_output=True)
     subprocess.run(["schtasks", "/Delete", "/TN", task, "/F"], capture_output=True)
 
-    r = subprocess.run(["schtasks", "/Create", "/TN", task, "/XML", xml_path, "/F"],
-                       capture_output=True)
+    r = subprocess.run(
+        ["schtasks", "/Create", "/TN", task, "/XML", xml_path, "/F"],
+        capture_output=True,
+    )
     try:
         os.remove(xml_path)
     except OSError:
@@ -100,8 +106,12 @@ def _create_windows_task(entry) -> bool:
             f"schtasks /Run /TN {task}"
         )
         subprocess.run(
-            ["powershell", "-NoProfile", "-Command",
-             f"Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command \"{ps_cmd}\"'"],
+            [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                f"Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command \"{ps_cmd}\"'",
+            ],
             capture_output=True,
         )
         time.sleep(3)
@@ -116,72 +126,92 @@ def _create_windows_task(entry) -> bool:
     return True
 
 
+def _warn_service_not_installed(script_name: str) -> None:
+    """Helper for printing uninstalled service warning messages."""
+    warn("Service not installed yet.")
+    info(f"Run {script_name} from your project directory to install the service.")
+
+
+def _restart_win_service(entry) -> None:
+    """Handles the restart of the Windows Scheduled Task or its installation."""
+    task_name = "FlutterToolkitServer"
+    r = subprocess.run(
+        ["schtasks", "/Query", "/TN", task_name],
+        capture_output=True,
+    )
+    if r.returncode == 0:
+        subprocess.run(["schtasks", "/End", "/TN", task_name], capture_output=True)
+        time.sleep(1)
+        subprocess.run(["schtasks", "/Run", "/TN", task_name], capture_output=True)
+        info("Service restarted with new project. - 1")
+        return
+
+    if entry is not None:
+        info("Service not installed yet - creating scheduled task...")
+        if _create_windows_task(entry):
+            ok("Service installed and started.")
+            info("URL: http://127.0.0.1:8742")
+        return
+
+    _warn_service_not_installed("install.bat")
+
+
+def _restart_mac_service() -> None:
+    """Handles the restart of the macOS LaunchAgent service."""
+    plist_label = "com.flutter-toolkit.server"
+    plist_path = os.path.expanduser(f"~/Library/LaunchAgents/{plist_label}.plist")
+
+    if os.path.exists(plist_path):
+        uid = os.getuid()
+        subprocess.run(["launchctl", "bootout", f"gui/{uid}/{plist_label}"], capture_output=True)
+        time.sleep(1)
+        subprocess.run(["launchctl", "bootstrap", f"gui/{uid}", plist_path], capture_output=True)
+        info("Service restarted with new project. - 2")
+    else:
+        _warn_service_not_installed("install.sh")
+
+
+def _restart_linux_service() -> None:
+    """Handles the restart of the Linux systemctl service."""
+    service_name = "flutter-toolkit.service"
+    r = subprocess.run(
+        ["systemctl", "--user", "is-active", service_name],
+        capture_output=True,
+    )
+    if r.returncode == 0:
+        subprocess.run(
+            ["systemctl", "--user", "restart", service_name],
+            capture_output=True,
+        )
+        info("Service restarted with new project. - 3")
+    else:
+        _warn_service_not_installed("install.sh")
+
+
 def _maybe_restart_service(entry=None) -> None:
     """Restart the OS service, or create + start it if not yet installed."""
     if sys.platform == "win32":
-        r = subprocess.run(
-            ["schtasks", "/Query", "/TN", "FlutterToolkitServer"],
-            capture_output=True,
-        )
-        if r.returncode == 0:
-            # Task exists - restart it
-            subprocess.run(["schtasks", "/End", "/TN", "FlutterToolkitServer"], capture_output=True)
-            time.sleep(1)
-            subprocess.run(["schtasks", "/Run", "/TN", "FlutterToolkitServer"], capture_output=True)
-            info("Service restarted with new project.")
-        elif entry is not None:
-            # Task doesn't exist - create it now
-            info("Service not installed yet - creating scheduled task...")
-            if _create_windows_task(entry):
-                ok("Service installed and started.")
-                info("URL: http://127.0.0.1:8742")
-            # else: error already printed inside _create_windows_task
-        else:
-            warn("Service not installed yet.")
-            info("Run install.bat from your project directory to install the service.")
-
+        _restart_win_service(entry)
     elif sys.platform == "darwin":
-        plist_label = "com.flutter-toolkit.server"
-        plist_path  = os.path.expanduser(f"~/Library/LaunchAgents/{plist_label}.plist")
-        if os.path.exists(plist_path):
-            uid = os.getuid()
-            subprocess.run(["launchctl", "bootout", f"gui/{uid}/{plist_label}"], capture_output=True)
-            time.sleep(1)
-            subprocess.run(["launchctl", "bootstrap", f"gui/{uid}", plist_path], capture_output=True)
-            info("Service restarted with new project.")
-        else:
-            warn("Service not installed yet.")
-            info("Run install.sh from your project directory to install the service.")
-
-    else:  # Linux
-        r = subprocess.run(
-            ["systemctl", "--user", "is-active", "flutter-toolkit.service"],
-            capture_output=True,
-        )
-        if r.returncode == 0:
-            subprocess.run(["systemctl", "--user", "restart", "flutter-toolkit.service"],
-                           capture_output=True)
-            info("Service restarted with new project.")
-        else:
-            warn("Service not installed yet.")
-            info("Run install.sh from your project directory to install the service.")
+        _restart_mac_service()
+    else:
+        _restart_linux_service()
 
 
 # ---------------------------------------------------------------------------
 # Sub-command handlers
 # ---------------------------------------------------------------------------
 
-def _cmd_list(_args) -> int:
+def _cmd_list() -> None:
     entries = list_projects()
     header("Registered projects")
     info(f"Registry: {registry_file()}")
     if not entries:
         warn("No projects registered. Use `ftk projects add <path>`.")
-        return 0
+        return
     for p in entries:
         marker = f" {C.GREEN}[active]{C.RESET}" if p.active else ""
         print(f"  {C.BOLD}{p.id:<20}{C.RESET}  {p.name:<30}  {p.root}{marker}")
-    return 0
 
 
 def _cmd_add(args) -> int:
@@ -225,15 +255,16 @@ def _cmd_clear(_args) -> int:
 # Entry point
 # ---------------------------------------------------------------------------
 
-def run(cfg: ProjectConfig, argv: list[str]) -> int: # noqa: S1172 - cfg required by command interface
+def cmd_projects(argv=None) -> int:
     init_colours()
-    parser = argparse.ArgumentParser(prog="ftk projects", description="Manage the project registry.")
+    parser = argparse.ArgumentParser(
+        prog="ftk projects", description="Manage the project registry."
+    )
     sub = parser.add_subparsers(dest="sub", metavar="{list,add,rm,use,clear}")
-
     sub.add_parser("list", aliases=["ls"], help="List registered projects.")
     p_add = sub.add_parser("add", help="Register a project directory.")
     p_add.add_argument("path")
-    p_add.add_argument("--id",   help="Short id (default: folder name).")
+    p_add.add_argument("--id", help="Short id (default: folder name).")
     p_add.add_argument("--name", help="Human-readable name.")
     p_rm = sub.add_parser("rm", aliases=["remove"], help="Remove a project.")
     p_rm.add_argument("id")
@@ -242,10 +273,13 @@ def run(cfg: ProjectConfig, argv: list[str]) -> int: # noqa: S1172 - cfg require
     sub.add_parser("clear", help="Forget the active project.")
 
     if not argv:
-        return _cmd_list(None)
+        _cmd_list()
+        return 0
+
     args = parser.parse_args(argv)
     if args.sub in (None, "list", "ls"):
-        return _cmd_list(args)
+        _cmd_list()
+        return 0
     if args.sub == "add":
         return _cmd_add(args)
     if args.sub in ("rm", "remove"):
@@ -254,5 +288,15 @@ def run(cfg: ProjectConfig, argv: list[str]) -> int: # noqa: S1172 - cfg require
         return _cmd_use(args)
     if args.sub == "clear":
         return _cmd_clear(args)
+
     parser.print_help()
     return 1
+
+def run(cfg, argv: list[str] | None = None) -> int:
+    """Entry point expected by ftk.cli.
+
+    The project registry doesn't operate on a specific project's
+    ProjectConfig, so `cfg` is accepted (main.py always passes it)
+    but intentionally ignored here.
+    """
+    return cmd_projects(argv)

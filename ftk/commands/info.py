@@ -1,5 +1,13 @@
 """Flutter project info & diagnostics."""
 from __future__ import annotations
+
+import base64
+import platform
+import shutil
+import subprocess
+import os
+import sys
+
 import argparse
 import json
 import os
@@ -34,7 +42,15 @@ def _version_oneliner(cmd: list[str]) -> str:
         kwargs = {}
         if sys.platform == "win32":
             kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, **kwargs)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10,
+            **kwargs,
+        )
         for line in result.stdout.strip().splitlines():
             if line.strip():
                 return line.strip()
@@ -214,30 +230,42 @@ def _kotlin_version() -> str:
     return ""
 
 
+_MAC_PHP_PATHS: tuple[str, ...] = (
+    "/Applications/XAMPP/xamppfiles/bin/php",
+    "/opt/homebrew/bin/php",
+)
+
+_WIN_PHP_PATHS: tuple[str, ...] = (
+    r"C:\xampp\php\php.exe",
+    r"C:\wamp64\bin\php\php.exe",
+    os.path.join(os.environ.get("PROGRAMFILES", ""), "PHP", "php.exe"),
+)
+
+
+def _find_php_fallback_version() -> str:
+    """It checks for the PHP version on well-known OS-specific paths."""
+    paths: tuple[str, ...] = ()
+    if sys.platform == "darwin":
+        paths = _MAC_PHP_PATHS
+    elif sys.platform == "win32":
+        paths = _WIN_PHP_PATHS
+
+    for path in paths:
+        if os.path.isfile(path):
+            v = _version_oneliner([path, "--version"])
+            if v:
+                return v
+
+    return ""
+
+
 def _php_version() -> str:
+    """It checks the version of PHP that is installed."""
     v = _win_cmd_fallback("php", ["--version"])
     if v:
         return v
-    if sys.platform == "darwin":
-        for path in (
-            "/Applications/XAMPP/xamppfiles/bin/php",
-            "/opt/homebrew/bin/php",
-        ):
-            if os.path.isfile(path):
-                v = _version_oneliner([path, "--version"])
-                if v:
-                    return v
-    if sys.platform == "win32":
-        for path in (
-            r"C:\xampp\php\php.exe",
-            r"C:\wamp64\bin\php\php.exe",
-            os.path.join(os.environ.get("PROGRAMFILES", ""), "PHP", "php.exe"),
-        ):
-            if os.path.isfile(path):
-                v = _version_oneliner([path, "--version"])
-                if v:
-                    return v
-    return ""
+        
+    return _find_php_fallback_version()
 
 
 def _composer_version() -> str:
@@ -261,34 +289,54 @@ def _composer_version() -> str:
             return _version_oneliner([bat, "--version"])
     return ""
 
+
+_MAC_RUBY_PATHS: tuple[str, ...] = (
+    "/opt/homebrew/opt/ruby/bin/ruby",
+    "/usr/local/opt/ruby/bin/ruby",
+    "/usr/bin/ruby",
+)
+
+
+def _mac_ruby_fallback() -> str:
+    """It checks for the Ruby version on well-known macOS paths."""
+    for path in _MAC_RUBY_PATHS:
+        if os.path.isfile(path):
+            v = _version_oneliner([path, "--version"])
+            if v:
+                return v
+    return ""
+
+
+def _win_ruby_fallback() -> str:
+    """It checks for the Ruby version on well-known Windows paths."""
+    sys_drive = os.environ.get("SYSTEMDRIVE", "C:") + "\\"
+    if not os.path.isdir(sys_drive):
+        return ""
+    try:
+        entries = sorted(os.listdir(sys_drive), reverse=True)
+    except OSError:
+        return ""
+    for entry in entries:
+        if not entry.lower().startswith("ruby"):
+            continue
+        exe = os.path.join(sys_drive, entry, "bin", "ruby.exe")
+        if os.path.isfile(exe):
+            v = _version_oneliner([exe, "--version"])
+            if v:
+                return v
+
+    return ""
+
+
 def _ruby_version() -> str:
+    """It checks the version of Ruby that is installed."""
     v = _version_oneliner(["ruby", "--version"])
     if v:
         return v
     if sys.platform == "darwin":
-        for path in (
-            "/opt/homebrew/opt/ruby/bin/ruby",
-            "/usr/local/opt/ruby/bin/ruby",
-            "/usr/bin/ruby",
-        ):
-            if os.path.isfile(path):
-                v = _version_oneliner([path, "--version"])
-                if v:
-                    return v
-    elif sys.platform == "win32":
-        sys_drive = os.environ.get("SYSTEMDRIVE", "C:") + "\\"
-        if os.path.isdir(sys_drive):
-            try:
-                entries = sorted(os.listdir(sys_drive), reverse=True)
-            except OSError:
-                entries = []
-            for entry in entries:
-                if entry.lower().startswith("ruby"):
-                    exe = os.path.join(sys_drive, entry, "bin", "ruby.exe")
-                    if os.path.isfile(exe):
-                        v = _version_oneliner([exe, "--version"])
-                        if v:
-                            return v
+        return _mac_ruby_fallback()
+    if sys.platform == "win32":
+        return _win_ruby_fallback()
     return ""
 
 def _get_android_sdk_root() -> str:
@@ -797,8 +845,76 @@ def _open_workspaces(project_root, cfg):
             info(f"{sub} not found - skipping (run `flutter pub get` first).")
 
 
-def _run_mac_setup(flutter_exe: str | None, project_root: str,
-                   cfg: ProjectConfig) -> None:
+def _ensure_rosetta(project_root: str) -> None:
+    """Installs Rosetta 2 for Apple Silicon architecture."""
+    if platform.machine() == "arm64":
+        info("Apple Silicon detected - ensuring Rosetta 2 is installed...")
+        run_cmd(
+            ["softwareupdate", "--install-rosetta", "--agree-to-license"],
+            cwd=project_root,
+            label="softwareupdate --install-rosetta",
+        )
+
+
+def _ensure_cli_tool(
+    name: str, 
+    install_cmd: list[str], 
+    label: str, 
+    project_root: str
+) -> None:
+    """Checks for the presence of a CLI tool and installs it if missing."""
+    exe_path = shutil.which(name)
+    if exe_path is None:
+        info(f"{name} not found - installing...")
+        run_cmd(install_cmd, cwd=project_root, label=label)
+    else:
+        ok(f"{name} found: {exe_path}")
+
+
+def _check_firebase_login(project_root: str) -> None:
+    """Checks the Firebase login status."""
+    header("Firebase")
+    try:
+        _r = subprocess.run(
+            ["firebase", "projects:list"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if _r.returncode == 0:
+            ok("Firebase: already logged in")
+            for line in _r.stdout.strip().splitlines()[:6]:
+                info(f"  {line}")
+            return
+    except Exception:
+        pass
+
+    warn("Firebase: not logged in")
+    if os.isatty(0):
+        run_cmd(["firebase", "login"], cwd=project_root, label="firebase login")
+    else:
+        info("Run manually: firebase login")
+
+
+def _print_flavor_base64_strings(cfg: ProjectConfig) -> None:
+    """Print the Base64-encoded strings for each flavor."""
+    if not cfg.has_flavors:
+        return
+
+    header("Flavor base64 strings")
+    for f in cfg.flavors:
+        raw = f"FLAVOR={f.name}"
+        encoded = base64.b64encode(raw.encode()).decode()
+        ok(f"{raw:30s} -> {encoded}")
+
+
+
+def _run_mac_setup(
+    flutter_exe: str | None, 
+    project_root: str, 
+    cfg: ProjectConfig
+) -> None:
+    """Coordinate the steps involved in setting up macOS."""
     header("macOS setup")
     if sys.platform != "darwin":
         warn(f"--mac-setup only runs on macOS (current: {sys.platform}).")
@@ -811,74 +927,35 @@ def _run_mac_setup(flutter_exe: str | None, project_root: str,
     else:
         warn("Flutter bin directory not discovered - skipping PATH patch.")
 
-    # 2. Rosetta (Apple Silicon)
-    import platform as _platform
-    if _platform.machine() == "arm64":
-        info("Apple Silicon detected - ensuring Rosetta 2 is installed...")
-        run_cmd(["softwareupdate", "--install-rosetta", "--agree-to-license"],
-                cwd=project_root, label="softwareupdate --install-rosetta")
+    # 2. Rosetta
+    _ensure_rosetta(project_root)
 
-    # 3. Xcode CLI + first-launch
+    # 3. Xcode CLI
     _setup_xcode(project_root)
 
-    # 4. CocoaPods
-    import shutil as _shutil
-    if _shutil.which("pod") is None:
-        info("CocoaPods not found - installing...")
-        run_cmd(["sudo", "gem", "install", "cocoapods"],
-                cwd=project_root, label="gem install cocoapods")
-    else:
-        ok(f"CocoaPods found: {_shutil.which('pod')}")
-
-    # 5. Firebase CLI
-    if _shutil.which("firebase") is None:          # _shutil, nem shutil!
-        info("Firebase CLI not found - installing via brew...")
-        run_cmd(["brew", "install", "firebase-cli"],
-                cwd=project_root, label="brew install firebase-cli")
-    else:
-        ok(f"Firebase CLI found: {_shutil.which('firebase')}")
-
-    # 6. FlutterFire CLI
-    if _shutil.which("flutterfire") is None:       # _shutil, nem shutil!
-        info("FlutterFire CLI not found - activating...")
-        run_cmd(["dart", "pub", "global", "activate", "flutterfire_cli"],
-                cwd=project_root, label="dart pub global activate flutterfire_cli")
-    else:
-        ok(f"FlutterFire CLI found: {_shutil.which('flutterfire')}")
+    # 4-6. CLI Tools (CocoaPods, Firebase, FlutterFire)
+    _ensure_cli_tool("pod", ["sudo", "gem", "install", "cocoapods"], "gem install cocoapods", project_root)
+    _ensure_cli_tool("firebase", ["brew", "install", "firebase-cli"], "brew install firebase-cli", project_root)
+    _ensure_cli_tool("flutterfire", ["dart", "pub", "global", "activate", "flutterfire_cli"], "dart pub global activate flutterfire_cli", project_root)
 
     # 7. Firebase login check
-    header("Firebase")
-    _r = subprocess.run(["firebase", "projects:list"],
-                        capture_output=True, text=True, timeout=10)
-    if _r.returncode == 0:
-        ok("Firebase: already logged in")
-        for line in _r.stdout.strip().splitlines()[:6]:   # első pár projekt
-            info(f"  {line}")
-    else:
-        warn("Firebase: not logged in")
-        if os.isatty(0):
-            run_cmd(["firebase", "login"], cwd=project_root, label="firebase login")
-        else:
-            info("Run manually: firebase login")
-            
-    # 8. flutter precache (active Apple platforms only)
+    _check_firebase_login(project_root)
+
+    # 8. Flutter precache
     _setup_precache(flutter_exe, project_root, cfg)
 
-    # 9. Available iOS simulators
+    # 9. Simulators
     header("Available iOS Simulators")
-    run_cmd(["xcrun", "simctl", "list", "devices", "available"],
-            cwd=project_root, label="xcrun simctl list devices available")
+    run_cmd(
+        ["xcrun", "simctl", "list", "devices", "available"],
+        cwd=project_root,
+        label="xcrun simctl list devices available",
+    )
 
-    # 10. Base64-encoded FLAVOR strings (needed for Xcode build configs)
-    if cfg.has_flavors:
-        import base64
-        header("Flavor base64 strings")
-        for f in cfg.flavors:
-            raw = f"FLAVOR={f.name}"
-            encoded = base64.b64encode(raw.encode()).decode()
-            ok(f"{raw:30s} -> {encoded}")
+    # 10. Base64 strings
+    _print_flavor_base64_strings(cfg)
 
-    # 11. Open apps + workspaces
+    # 11. Workspaces
     _open_workspaces(project_root, cfg)
     ok("macOS setup complete.")
 

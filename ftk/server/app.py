@@ -10,6 +10,7 @@ import time
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Annotated
+from fastapi.staticfiles import StaticFiles
 
 try:
     from fastapi import Body, FastAPI, WebSocket, WebSocketDisconnect
@@ -492,6 +493,12 @@ class _AppHandlers:
         )
         return Response(content=svg.encode(), media_type="image/svg+xml")
 
+    def manifest(self) -> Response:
+        return _serve_ui_file("manifest.json", "application/manifest+json")
+
+    def sw(self) -> Response:
+        return _serve_ui_file("sw.js", "application/javascript; charset=utf-8")
+
     # -- API routes ----------------------------------------------------------
 
     def api_status(self) -> dict:
@@ -535,7 +542,7 @@ class _AppHandlers:
         ]
         return {"projects": items, "active": self._state.cfg.id}
 
-    async def api_select_project(
+    def api_select_project(
         self,
         body: Annotated[_ProjectSelect, Body(...)]
     ):
@@ -630,9 +637,12 @@ class _AppHandlers:
 def _register_routes(app: FastAPI, h: _AppHandlers, state: _State) -> None:
     """Wire all handlers and the WebSocket endpoint onto *app*."""
     app.add_api_route("/", h.index, response_class=HTMLResponse)
+    app.add_api_route("/index.html", h.index, response_class=HTMLResponse)
     app.add_api_route("/ui.css", h.css)
     app.add_api_route("/ui.js", h.js)
     app.add_api_route("/favicon.ico", h.favicon)
+    app.add_api_route("/manifest.json", h.manifest)
+    app.add_api_route("/sw.js", h.sw)
 
     app.add_api_route("/api/status", h.api_status)
     app.add_api_route("/api/health", h.api_health)
@@ -658,4 +668,7 @@ def create_app(cfg: ProjectConfig) -> FastAPI:
     logger.info("Starting server for project %s (%s)", cfg.name, cfg.root)
     app = FastAPI(title=f"flutter-toolkit ({cfg.name or cfg.id})")
     _register_routes(app, _AppHandlers(state, logger), state)
+    icons_dir = UI_DIR / "icons"
+    if icons_dir.is_dir():
+        app.mount("/icons", StaticFiles(directory=icons_dir), name="icons")
     return app
