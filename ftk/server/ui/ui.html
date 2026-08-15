@@ -4,6 +4,14 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
         <title>Flutter Toolkit</title>
+        <link rel="manifest" href="manifest.json">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="Flutter Toolkit">
+        <meta name="apple-touch-fullscreen" content="yes">
+        <link rel="apple-touch-icon" href="icons/192.png">
+        <link rel="apple-touch-icon" sizes="512x512" href="icons/512.png">
         <meta name="description" content="Flutter Toolkit - build, clean, diagnose and manage Flutter projects from a single web UI.">
         <meta name="keywords" content="flutter, cross platform, toolkit, build, info, clean, icons, translations, diagnostics, helpers">
         <meta name="author" content="NHZ">
@@ -17,13 +25,11 @@
         <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
         <meta http-equiv="Pragma" content="no-cache">
         <meta http-equiv="Expires" content="0">
-        <meta name="apple-touch-fullscreen" content="yes">
         <link rel="icon" type="image/x-icon" href="favicon.ico" id="favicon"/>
         <meta name="theme-color" content="#fafbfc" media="(prefers-color-scheme: light)">
         <meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)">
-        <!-- Google Fonts does not provide SRI hashes; crossorigin ensures CORS compliance -->
         <link rel="preload" as="style" crossorigin="anonymous" integrity="sha256-957j3vEE/E9LQnAHbnkmDy5PNHML/2z3u2wd7gdUAH4=" href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,100..900;1,100..900&display=swap?v=1.0.0" onload="this.onload=null;this.rel='stylesheet'">
-        <link rel="preload" as="style" href="/ui.css?v=1.0.0" onload="this.onload=null;this.rel='stylesheet'">
+        <link rel="preload" as="style" href="ui.css?v=1.0.0" onload="this.onload=null;this.rel='stylesheet'">
         <script type="application/ld+json">
             {
                 "@context": "https://schema.org",
@@ -40,6 +46,21 @@
                     "@type": "Offer",
                     "price": "0"
                 }
+            }
+        </script>
+        <script id="service-worker" data-keepinline="true">
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', async () => {
+                    try {
+                        const registration = await navigator.serviceWorker.register('sw.js');
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            if (newWorker) { newWorker.addEventListener('statechange', () => { if (newWorker.state === 'installed' && navigator.serviceWorker.controller) { console.log('FTK: A new version is available! Refresh the page.'); }});}
+                        });
+                    } catch (error) {
+                        console.warn('FTK: Service Worker registration error:', error);
+                    }
+                });
             }
         </script>
         <noscript>Flutter Toolkit - Flutter project management web UI. JavaScript required.</noscript>

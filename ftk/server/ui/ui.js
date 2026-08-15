@@ -60,7 +60,7 @@
     const isMac = /Macintosh|Mac OS X/i.test(navigator.userAgent);
     const ctrlLabel = isMac ? '⌘' : 'Ctrl';
     const altLabel = isMac ? '⌥' : 'Alt';
-    const kbd = s => s.replace(/\bCtrl\b/g, ctrlLabel).replace(/\bAlt\b/g, altLabel);
+    const kbd = s => s.replaceAll(/\bCtrl\b/g, ctrlLabel).replaceAll(/\bAlt\b/g, altLabel);
     // Apply to all initial [title] attrs + welcome shortcut spans (before welcomeHTML snapshot)
     if (isMac) {
         document.querySelectorAll('[title]').forEach(el => { el.title = kbd(el.title); });
@@ -156,8 +156,6 @@
         "--format tar.bz2": "TAR + BZip2. Slower than gzip, slightly better ratio.",
         "--format tar.xz": "TAR + XZ. Best compression ratio, but significantly slower.",
         "--format tar": "Plain TAR, no compression. Fastest, largest file.",
-        "--format 7z": "7-Zip archive with encrypted headers. Best security + good compression.",
-        "--format tar.zst": "TAR + Zstandard. Modern format: near-xz ratio at gz speed.",
         "--no-default-excludes": "Include build/, .dart_tool/ etc. in the archive. Much larger and slower.",
         "--keep 3": "After backup, keep only the 3 most recent backup files.",
         "--keep 5": "After backup, keep only the 5 most recent backups.",

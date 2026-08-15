@@ -81,6 +81,27 @@ def _build_output_path(project_root: str, fmt: str, output: str | None, prefix: 
     return _default_output_dir(project_root) / name
 
 
+def _should_skip_file(
+    file_path: Path,
+    root: Path,
+    excludes: set[str],
+    backup_re: re.Pattern,
+    out_resolved: Path | None,
+) -> bool:
+    """Specifies whether a particular file should be excluded from the archive."""
+    if out_resolved and file_path == out_resolved:
+        return True
+
+    if file_path.parent == root and file_path.name in excludes:
+        return True
+
+    rel_parts = file_path.relative_to(root).parts
+    if len(rel_parts) == 1 and backup_re.match(rel_parts[0]):
+        return True
+
+    return False
+
+
 def _collect_files(project_root: str, excludes: set[str], out_path: Path, backup_re: re.Pattern) -> list[Path]:
     root = Path(project_root)
     try:
@@ -95,22 +116,12 @@ def _collect_files(project_root: str, excludes: set[str], out_path: Path, backup
         if out_dir_resolved and dp.resolve() == out_dir_resolved:
             dirnames.clear()
             continue
-        dirnames[:] = [
-            d for d in dirnames
-            if d not in excludes
-        ]
+        dirnames[:] = [d for d in dirnames if d not in excludes]
         for fn in filenames:
             p = dp / fn
-            if dirpath == str(root) and p.name in excludes:
-                continue
-            rel_parts = p.relative_to(root).parts
-            if len(rel_parts) == 1 and backup_re.match(rel_parts[0]):
-                continue
-            if out_resolved and p == out_path:
-                continue
-            files.append(p)
+            if not _should_skip_file(p, root, excludes, backup_re, out_resolved):
+                files.append(p)
     return files
-
 
 def _rotate_backups(out_dir: Path, keep: int, backup_glob: str) -> int:
     if keep <= 0:

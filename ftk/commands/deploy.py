@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from dataclasses import replace as _dc_replace
+from dataclasses import dataclass, field, replace
 from ftk.common import C, header, ok, warn, err, info, skip, confirm, fmt_size, missing_dep
 from ftk.config import ProjectConfig, DeployTargetConfig
 
@@ -410,29 +410,60 @@ def _print_deploy_summary(flavor_name, stats, env: str = "prod"):
         err( f"    Failed     : {stats.failed}")
 
 
-def _deploy_flavor(target: DeployTargetConfig, project_root: str, *,
-                   auto_yes: bool, dry_run: bool, skip_backup: bool,
-                   env: str = "prod") -> bool:
+def _validate_deploy_target_and_build(
+    target: DeployTargetConfig, 
+    project_root: str, 
+    env: str
+) -> tuple[DeployTargetConfig | None, str | None]:
+    """Validate the deployment target configuration and build directory."""
     flavor_name = target.flavor or "default"
-    env_tag = f" [{env}]" if env != "prod" else ""
-    header(f"Deploy: {flavor_name}{env_tag}")
 
     if not target.host or not target.user:
         err(f"Target {flavor_name} is not configured (missing host/user).")
-        return False
+        return None, None
+
     if not target.resolved_password():
         err(f"No password set for {flavor_name}. Set env var {target.password_env or '<password>'}.")
-        return False
+        return None, None
 
     effective_path = _effective_remote_path(target, env)
     if effective_path is None:
-        return False
-    working_target = _dc_replace(target, remote_path=effective_path)
+        return None, None
 
     build_dir = _build_dir_for(project_root, target.flavor)
     if not build_dir:
         err(f"No web build found for '{flavor_name}'.")
         info(f"  Run `ftk build --web --flavor {flavor_name}` first.")
+        return None, None
+
+    working_target = replace(target, remote_path=effective_path)
+    return working_target, build_dir
+
+
+def _log_dry_run(local_files: list[str]) -> None:
+    """Display simulation information in dry-run mode."""
+    info("[dry-run] would connect, backup, and upload")
+    for rel in _sort_for_safe_upload(local_files)[:5]:
+        info(f"  [dry-run] would upload: {rel}")
+    if len(local_files) > 5:
+        info(f"  ... and {len(local_files) - 5} more")
+
+
+def _deploy_flavor(
+    target: DeployTargetConfig,
+    project_root: str,
+    *,
+    auto_yes: bool,
+    dry_run: bool,
+    skip_backup: bool,
+    env: str = "prod",
+) -> bool:
+    flavor_name = target.flavor or "default"
+    env_tag = f" [{env}]" if env != "prod" else ""
+    header(f"Deploy: {flavor_name}{env_tag}")
+
+    working_target, build_dir = _validate_deploy_target_and_build(target, project_root, env)
+    if not working_target or not build_dir:
         return False
 
     local_files = _collect_local_files(build_dir)
@@ -443,16 +474,11 @@ def _deploy_flavor(target: DeployTargetConfig, project_root: str, *,
     info(f"Remote path : {working_target.remote_path}")
 
     if dry_run:
-        info("[dry-run] would connect, backup, and upload")
-        for rel in _sort_for_safe_upload(local_files)[:5]:
-            info(f"  [dry-run] would upload: {rel}")
-        if len(local_files) > 5:
-            info(f"  ... and {len(local_files) - 5} more")
+        _log_dry_run(local_files)
         return True
 
     target_desc = f"{flavor_name}{env_tag}"
-    if not confirm(f"Deploy {len(local_files)} file(s) to {target_desc}?",
-                   auto_yes=auto_yes, dry_run=False):
+    if not confirm(f"Deploy {len(local_files)} file(s) to {target_desc}?", auto_yes=auto_yes, dry_run=False):
         skip("Deploy cancelled.")
         return False
 
@@ -467,14 +493,16 @@ def _deploy_flavor(target: DeployTargetConfig, project_root: str, *,
 
     try:
         proceed, remote_files = _resolve_remote_files(
-            deployer, target, project_root, skip_backup, auto_yes, env=env)
+            deployer, target, project_root, skip_backup, auto_yes, env=env
+        )
         if not proceed:
             return False
 
         sorted_files = _sort_for_safe_upload(local_files)
         info("Uploading files (assets first, HTML last)...")
-        stats = _upload_files(deployer, sorted_files, build_dir,
-                              set(remote_files), working_target.skip_patterns)
+        stats = _upload_files(
+            deployer, sorted_files, build_dir, set(remote_files), working_target.skip_patterns
+        )
     finally:
         deployer.disconnect()
 

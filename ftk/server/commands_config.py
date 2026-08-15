@@ -618,7 +618,7 @@ def _notes() -> dict:
 
 # ---- Help ----
 
-def _help(cfg: ProjectConfig) -> dict:
+def _help() -> dict:
     enabled_cmds = [k for k in COMMAND_ORDER if k not in ("notes", "help", "run")]
     return {
         "title": "Help & Usage", "icon": "help",
@@ -665,7 +665,7 @@ def build(cfg: ProjectConfig) -> dict[str, Any]:
         "run":          _run_cmds(cfg),
         "sonar":        _sonar(cfg),
         "notes":        _notes(),
-        "help":         _help(cfg),
+        "help":         _help(),
     }
     out: dict[str, Any] = {}
     for key in COMMAND_ORDER:
