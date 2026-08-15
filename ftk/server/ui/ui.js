@@ -193,6 +193,7 @@
         "--delete-conflicting": "Passes --delete-conflicting-outputs. Automatically resolves conflicts instead of asking interactively. Recommended for most cases.",
         "--flutter-gen": "Runs flutter_gen to generate type-safe asset accessors. Use Assets.images.logo.image() instead of raw strings.",
         "codegen": "Show Code Generation usage.",
+        "--flutter-upgrade-force": "Discards any local (uncommitted) changes in the Flutter SDK checkout before upgrading. Only use this if `flutter upgrade` fails due to a dirty SDK git state.",
     };
     footerEl.textContent = `\u00a9 ${new Date().getFullYear()} NHZ`;
     const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -1046,7 +1047,7 @@
         cmd.groups.forEach((grp, gi) => configEl.appendChild(renderGroupDOM(grp, name, gi)));
         if (cmd.groups.length > 0) { configEl.appendChild($("tpl-reset-row").content.cloneNode(true)); }
         for (const el of configEl.querySelectorAll("input,select")) {
-            el.addEventListener("change", () => { syncPreview(); syncPresetActive(cmd); syncBuildConstraints(); syncBackupConstraints(); });
+            el.addEventListener("change", () => { syncPreview(); syncPresetActive(cmd); syncBuildConstraints(); syncBackupConstraints(); syncCleanConstraints(); });
         }
         for (const btn of configEl.querySelectorAll(".check-all-btn:not(.master-btn)")) {
             btn.addEventListener("click", () => setGroupChecked(btn.dataset.gi, btn.dataset.cmd, true));
@@ -1083,6 +1084,7 @@
                 syncPreview();
                 syncBuildConstraints();
                 syncBackupConstraints();
+                syncCleanConstraints();
             });
         }
         function _resetCheckboxGroup(grp) {
@@ -1119,10 +1121,12 @@
                 syncPresetActive(activeConfig);
                 syncBuildConstraints();
                 syncBackupConstraints();
+                syncCleanConstraints();
             });
         }
         attachTooltips();
         syncBuildConstraints();
+        syncCleanConstraints();
     }
     function renderDynamicFolders(grp, groupEl, name, gi) {
         const loadingEl = document.createElement("div");
@@ -1202,6 +1206,14 @@
         groupEl.querySelectorAll(".uncheck-all-btn").forEach(btn =>
             btn.addEventListener("click", () =>
                 setGroupChecked(btn.dataset.gi, btn.dataset.cmd, false)));
+    }
+    function syncCleanConstraints() {
+        if (activeCmd !== "clean") { return; }
+        const flag = f => configEl.querySelector(`input[data-flag="${CSS.escape(f)}"]`);
+        const upgradeCb = flag("--flutter-upgrade");
+        const forceCb = flag("--flutter-upgrade-force");
+        if (!upgradeCb || !forceCb) { return; }
+        _setDisabled(forceCb, !upgradeCb.checked, "Only relevant when \u201cFlutter SDK upgrade\u201d is also selected");
     }
     function syncBuildConstraints() {
         if (activeCmd !== "build") { return; }

@@ -426,13 +426,14 @@ def _pub_upgrade_section(flutter_exe, pub_modifiers, *, confirm_fn, run_fn, resu
         results.append(False)
 
 
-def _flutter_upgrade_section(flutter_exe, *, confirm_fn, run_fn, results):
+def _flutter_upgrade_section(flutter_exe, *, confirm_fn, run_fn, results, force=False):
     header("flutter upgrade")
     if not confirm_fn("Upgrade the Flutter SDK itself (flutter upgrade)?"):
         skip("flutter upgrade")
         results.append(True)
     elif flutter_exe:
-        results.append(run_fn(_flutter_cmd(flutter_exe, "upgrade")))
+        cmd_args = ("upgrade", "--force") if force else ("upgrade",)
+        results.append(run_fn(_flutter_cmd(flutter_exe, *cmd_args)))
     else:
         err(_NO_FLUTTER)
         results.append(False)
@@ -569,7 +570,8 @@ def _dispatch_steps(args, cfg, flutter_exe, pub_modifiers, results, *,
 
     if args.flutter_upgrade:
         _flutter_upgrade_section(flutter_exe, confirm_fn=confirm_fn,
-                                 run_fn=run_fn, results=results)
+                             run_fn=run_fn, results=results,
+                             force=args.flutter_upgrade_force)
 
     _step_cocoapods(args, project_root, cfg, results, dry_run=dry_run)
     _step_open_xcode(args, project_root, run_fn=run_fn)
@@ -590,6 +592,7 @@ def run(cfg: ProjectConfig, argv: list[str]) -> int:
     parser.add_argument("--upgrade", action="store_true")
     parser.add_argument("--pub-cache", action="store_true")
     parser.add_argument("--flutter-upgrade", action="store_true")
+    parser.add_argument("--flutter-upgrade-force", action="store_true")
     parser.add_argument("--pub-outdated", action="store_true")
     parser.add_argument("--pub-deps", action="store_true")
     parser.add_argument("--upgrade-dry-run", action="store_true")
