@@ -30,6 +30,7 @@
         <meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)">
         <link rel="preload" as="style" crossorigin="anonymous" integrity="sha256-957j3vEE/E9LQnAHbnkmDy5PNHML/2z3u2wd7gdUAH4=" href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,100..900;1,100..900&display=swap?v=1.0.0" onload="this.onload=null;this.rel='stylesheet'">
         <link rel="preload" as="style" href="ui.css?v=1.0.0" onload="this.onload=null;this.rel='stylesheet'">
+        <link rel="preload" as="style" href="/features/features.css?v=1.0.0" onload="this.onload=null;this.rel='stylesheet'">
         <script type="application/ld+json">
             {
                 "@context": "https://schema.org",
@@ -86,6 +87,13 @@
                 </div>
                 <div id="header-buttons">
                     <select id="project-switcher" class="project-switcher" title="Switch project" aria-label="Switch project" hidden></select>
+                    <button class="awake-btn" id="awake-btn" type="button" title="Keep awake" aria-label="Keep awake" data-mode="off" hidden>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                            <path d="M3 6.5h8v3.5a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+                            <path d="M11 7.5h.8a1.7 1.7 0 0 1 0 3.4H11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                            <path d="M5.5 1.5v2.2M8 1v2.7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                        </svg>
+                    </button>
                     <button class="restart-btn" id="restart-btn" type="button" title="Restart server" aria-label="Restart server">
                         <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
                             <path d="M2 7.5A5.5 5.5 0 1 1 3.2 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
@@ -220,6 +228,13 @@
                             </g>
                         </svg>
                     </button>
+                    <button class="btn btn-queue-add" id="btn-queue-add" type="button" title="Add the current command to the queue" aria-label="Add to queue" hidden disabled>
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                            <path d="M1.5 3h6M1.5 6.5h6M1.5 10h3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                            <path d="M10 6v5M7.5 8.5h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                        </svg>
+                        <span class="queue-count" id="queue-count" hidden></span>
+                    </button>
                     <button class="btn btn-run" id="btn-run" type="button" title="Run command (Ctrl+Enter)">
                         <svg id="run-icon" width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
                             <path d="M3 2l8 4.5L3 11V2z" fill="currentColor"/>
@@ -330,6 +345,9 @@
             <symbol id="icon-edit" viewBox="0 0 16 16" fill="none">
                 <path d="M11 2l3 3-8 8H3v-3l8-8z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
                 <path d="M9 4l3 3" stroke="currentColor" stroke-width="1.5"/>
+            </symbol>
+            <symbol id="icon-list" viewBox="0 0 16 16" fill="none">
+                <path d="M2 4h12M2 8h12M2 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             </symbol>
             <symbol id="icon-save" viewBox="0 0 16 16" fill="none">
                 <path d="M2 3a1 1 0 0 1 1-1h8l3 3v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3z" stroke="currentColor" stroke-width="1.5"/>

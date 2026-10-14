@@ -24,9 +24,20 @@ except ImportError as exc:  # pragma: no cover
 from ftk.config import ProjectConfig, load_config, BackupConfig
 from ftk.projects import list_projects, find_project, set_last_project_id
 from ftk.server.commands_config import build as build_commands_config, COMMAND_ORDER
+from ftk.server.keepawake import KeepAwake
+from ftk.server.queue_args import prepare_queue_command, queue_timeout
 
 
 UI_DIR = Path(__file__).resolve().parent / "ui"
+FEATURES_DIR = UI_DIR / "features"
+# Explicit MIME types: on Windows the registry can map .js to text/plain, which browsers refuse for ES modules.
+_FEATURE_MIME = {
+    ".js": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".svg": "image/svg+xml",
+}
+_FEATURE_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
+_NO_CACHE = {"Cache-Control": "no-cache"}
 IS_WINDOWS = sys.platform == "win32"
 _PLATFORM_LABEL: dict[str, str] = {"win32": "Windows", "darwin": "macOS"}
 _PROMPT_TIMEOUT = 0.15
@@ -40,6 +51,11 @@ class _ProjectSelect(BaseModel):
 
 class _NoteBody(BaseModel):
     content: str
+
+
+class _KeepAwakeBody(BaseModel):
+    enabled: bool
+    auto_off: bool = False
 
 
 def _setup_logger(log_dir: Path) -> logging.Logger:
@@ -90,11 +106,27 @@ def _terminate_process_group(pgid: int) -> None:
     os.killpg(pgid, signal.SIGTERM)  # NOSONAR - pgid is verified != server PID by caller
 
 
+def _kill_tree_windows(proc) -> None:
+    """Kill *proc* and everything it started (Windows has no process groups to signal).
+
+    A queue runs `pipeline -> ftk <command> -> flutter ...`; killing only the first process
+    would leave the current step running.
+    """
+    try:
+        subprocess.Popen(
+            ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except OSError:
+        proc.kill()
+
+
 def _kill_proc(proc) -> None:
     """Kill a subprocess and its children."""
     try:
         if IS_WINDOWS:
-            proc.kill()
+            _kill_tree_windows(proc)
         else:
             pgid = os.getpgid(proc.pid)
             if pgid == os.getpid():
@@ -193,6 +225,7 @@ class _State:
         self.cfg = cfg
         self.active_client: int | None = None
         self.active_command: str | None = None
+        self.keep_awake = KeepAwake()
 
 
 def _build_allowlist(command_cfg: dict) -> set[str]:
@@ -258,6 +291,8 @@ def _validate_backup_args(args: list[str]) -> bool:
 
 
 def _prepare_command(cfg: ProjectConfig, commands_config: dict, command: str, args: list[str]) -> tuple | None:
+    if command == "queue":
+        return prepare_queue_command(cfg, commands_config, args, _prepare_command)
     if command not in commands_config:
         return None
     block = commands_config[command]
@@ -324,16 +359,18 @@ async def _drain_output(proc, ws: WebSocket, skip_prompts: bool, prompt_queue: a
 
 
 async def _run_and_drain(proc, ws: WebSocket, command: str, merged: list, start: float, prompt_queue: asyncio.Queue) -> None:
-    skip_prompts = "--yes" in merged or "-y" in merged
+    limit = queue_timeout(command, merged, MAX_RUNTIME)  # a queue gets the limit once per step
+    # in a queue prompts must always reach the UI: --yes on one step says nothing about the others
+    skip_prompts = command != "queue" and ("--yes" in merged or "-y" in merged)
     try:
         await asyncio.wait_for(
             _drain_output(proc, ws, skip_prompts, prompt_queue),
-            timeout=MAX_RUNTIME,
+            timeout=limit,
         )
     except asyncio.TimeoutError:
         _kill_proc(proc)
-        await ws.send_json({"type": "error", "data": f"Timed out after {MAX_RUNTIME}s (set FTK_TIMEOUT to override)"})
-        await ws.send_json({"type": "exit", "code": -1, "duration": MAX_RUNTIME})
+        await ws.send_json({"type": "error", "data": f"Timed out after {limit}s (set FTK_TIMEOUT to override)"})
+        await ws.send_json({"type": "exit", "code": -1, "duration": limit})
         return
     code = await proc.wait()
     duration = round(time.monotonic() - start, 1)
@@ -349,7 +386,7 @@ def _serve_ui_file(name: str, mime: str) -> Response:
     path = UI_DIR / name
     if not path.exists():
         return Response(status_code=404)
-    return Response(content=path.read_bytes(), media_type=mime)
+    return Response(content=path.read_bytes(), media_type=mime, headers=_NO_CACHE)
 
 
 def _get_default_excludes(cfg: ProjectConfig) -> set[str]:
@@ -421,7 +458,7 @@ class _WebSocketSession:
 
     async def _execute(self, cmd: list, merged: list, command: str) -> None:
         start = time.monotonic()
-        display = " ".join(["ftk", command, *merged])
+        display = " ".join(["ftk", "pipeline" if command == "queue" else command, *merged])
         await self._ws.send_json({"type": "start", "data": f"$ {display}"})
         hb = asyncio.create_task(_heartbeat(self._ws))
         try:
@@ -434,6 +471,7 @@ class _WebSocketSession:
             self._proc_holder[0] = None
             self._state.active_client = None
             self._state.active_command = None
+            self._state.keep_awake.release_if_auto()
 
     async def _run_process(self, cmd: list, merged: list, command: str, start: float) -> None:
         proc = await asyncio.create_subprocess_exec(
@@ -472,7 +510,7 @@ class _AppHandlers:
             return HTMLResponse("<h1>ui.html missing</h1>", status_code=500)
 
         content = await asyncio.to_thread(p.read_text, encoding="utf-8")
-        return HTMLResponse(content)
+        return HTMLResponse(content, headers=_NO_CACHE)
 
     def css(self) -> Response:
         return _serve_ui_file("ui.css", "text/css; charset=utf-8")
@@ -617,6 +655,27 @@ class _AppHandlers:
 
         return {"ok": True}
 
+    # -- Keep-awake and the UI's optional feature files ----------------------
+
+    def api_keepawake_get(self) -> dict:
+        return self._state.keep_awake.status()
+
+    def api_keepawake_set(self, body: Annotated[_KeepAwakeBody, Body(...)]) -> dict:
+        ka = self._state.keep_awake
+        if body.enabled:
+            ka.enable(auto_off=body.auto_off)
+        else:
+            ka.disable()
+        return ka.status()
+
+    def feature_file(self, name: str) -> Response:
+        mime = _FEATURE_MIME.get(Path(name).suffix.lower())
+        safe = bool(name) and not name.startswith(".") and set(name) <= _FEATURE_CHARS
+        path = FEATURES_DIR / name
+        if mime is None or not safe or not path.is_file():
+            return Response(status_code=404)
+        return Response(content=path.read_bytes(), media_type=mime, headers=_NO_CACHE)
+
     async def api_restart(self) -> dict:
         if self._state.active_client is not None:
             return {"ok": False, "reason": "A command is currently running."}
@@ -625,6 +684,7 @@ class _AppHandlers:
 
         async def _do() -> None:
             await asyncio.sleep(0.3)
+            self._state.keep_awake.disable()  # the helper is tied to this PID, which survives os.execv
             _restart_server(logger)
 
         task = asyncio.create_task(_do())
@@ -653,6 +713,9 @@ def _register_routes(app: FastAPI, h: _AppHandlers, state: _State) -> None:
     app.add_api_route("/api/notes", h.api_get_notes)
     app.add_api_route("/api/notes", h.api_save_notes, methods=["POST"])
     app.add_api_route("/api/restart", h.api_restart, methods=["POST"])
+    app.add_api_route("/api/keepawake", h.api_keepawake_get)
+    app.add_api_route("/api/keepawake", h.api_keepawake_set, methods=["POST"])
+    app.add_api_route("/features/{name}", h.feature_file)
 
     async def ws_endpoint(ws: WebSocket) -> None:
         await _WebSocketSession(ws, state).handle()

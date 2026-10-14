@@ -160,6 +160,7 @@ class CommandToggles:
     sonar: bool = True
     notes: bool = True
     help: bool = True
+    queue: bool = True
 
 
 @dataclass
@@ -484,6 +485,7 @@ commands:
   run: true
   notes: true
   help: true
+  queue: true
 
 integrations:
   server:

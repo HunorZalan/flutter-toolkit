@@ -19,7 +19,7 @@ from typing import Any
 from ftk.config import ProjectConfig
 
 COMMAND_ORDER = [
-    "clean", "build", "deploy", "backup", "info", "analyze", "codegen",
+    "clean", "build", "deploy", "backup", "queue", "info", "analyze", "codegen",
     "icons", "unused", "translations", "test", "run", "sonar", "notes", "help",
 ]
 
@@ -617,10 +617,21 @@ def _notes() -> dict:
     }
 
 
+# ---- Queue ----
+
+def _queue() -> dict:
+    return {
+        "title": "Queue", "icon": "list", "type": "queue",
+        "description": "Chain commands and run them one after another. Add steps with the + button next to Run.",
+        "static": True, "fullscreen": False, "hide_run_controls": False,
+        "script": "pipeline", "groups": [], "inject_flags": [],
+    }
+
+
 # ---- Help ----
 
 def _help() -> dict:
-    enabled_cmds = [k for k in COMMAND_ORDER if k not in ("notes", "help", "run")]
+    enabled_cmds = [k for k in COMMAND_ORDER if k not in ("notes", "help", "run", "queue")]
     return {
         "title": "Help & Usage", "icon": "help",
         "description": "Show command-line usage.",
@@ -665,6 +676,7 @@ def build(cfg: ProjectConfig) -> dict[str, Any]:
         "test":         _test(),
         "run":          _run_cmds(cfg),
         "sonar":        _sonar(cfg),
+        "queue":        _queue(),
         "notes":        _notes(),
         "help":         _help(),
     }

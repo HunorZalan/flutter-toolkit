@@ -70,5 +70,7 @@ ftk = [
     "server/ui/*.ico",
     "server/ui/*.png",
     "server/ui/*.svg",
+    "server/ui/*.json",
+    "server/ui/icons/*.png",
     "ftk.default.yaml",
 ]

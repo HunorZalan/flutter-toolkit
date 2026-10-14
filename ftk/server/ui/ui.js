@@ -517,6 +517,7 @@
         }
         document.body.classList.add("welcome-mode");
         syncButtons();
+        bus.emit("cmd:selected", null);
     });
     function checkBusy() {
         fetch("/api/status")
@@ -536,6 +537,7 @@
             loadConfig();
             checkBusy();
             refreshProjectSwitcher();
+            bus.emit("ws:open");
         };
         ws.onclose = () => {
             wsDot.className = "dot off";
@@ -549,11 +551,13 @@
             runningCmd = null;
             running = false;
             syncButtons();
+            bus.emit("ws:close");
             setTimeout(connectWs, 2500);
         };
         ws.onmessage = (e) => handleMsg(JSON.parse(e.data));
     }
     function handleMsg(msg) {
+        bus.emit("ws:msg", msg);
         switch (msg.type) {
             case "start":
                 sbProgress.textContent = "";
@@ -683,6 +687,7 @@
                 config = data;
                 meta.textContent = `${config.platform} • ${config.project_root}`;
                 renderSidebar();
+                bus.emit("config:loaded", config);
             })
             .catch(err => {
                 meta.textContent = "Config load failed";
@@ -710,6 +715,10 @@
             navEl.appendChild(btn);
         }
         syncSidebarCollapse();
+        // renderSidebar() runs again on every reconnect: put back what the rebuild wiped
+        for (const b of navEl.querySelectorAll(".cmd-btn")) { b.classList.toggle("active", b.dataset.cmd === activeCmd); }
+        if (running && runningCmd) { setRunningBtn(runningCmd, true); }
+        for (const key of Object.keys(cmdLineCounts)) { updateCmdBadge(key); }
     }
     function selectCmd(name) {
         document.body.classList.remove("welcome-mode");
@@ -740,6 +749,7 @@
         syncPreview();
         syncButtons();
         updateRunBtnTooltip(name);
+        bus.emit("cmd:selected", name);
     }
     // Render config panel
     function renderOptRowDOM(opt, name, gi, oi) {
@@ -1005,15 +1015,17 @@
     }
     function renderConfigPanel(cmd, name) {
         if (cmd.type === "notes") { renderNotesPanel(cmd); return; }
+        if (panelRenderers[cmd.type]) { renderCustomPanel(cmd, name); return; }
         if (cmd.static) { renderStaticPanel(cmd); return; }
+        activeConfig = cmd;
+        configEl.innerHTML = "";
         if (cmd.warning) {
+            // used to be appended *before* the clear above, so it never showed up
             const banner = document.createElement("div");
             banner.className = "cmd-warning-banner";
             banner.textContent = cmd.warning;
             configEl.appendChild(banner);
         }
-        activeConfig = cmd;
-        configEl.innerHTML = "";
         const h2 = document.createElement("h2");
         h2.textContent = cmd.title;
         configEl.appendChild(h2);
@@ -1127,6 +1139,7 @@
         attachTooltips();
         syncBuildConstraints();
         syncCleanConstraints();
+        bus.emit("config:rendered", { cmd, name });
     }
     function renderDynamicFolders(grp, groupEl, name, gi) {
         const loadingEl = document.createElement("div");
@@ -1174,6 +1187,7 @@
             groupEl.appendChild(row);
         });
         wireFolderEvents(groupEl);
+        bus.emit("config:folders", { name });
         syncPreview();
     }
     function normalizeFolder(f) {
@@ -1343,6 +1357,7 @@
         if (activeConfig?.static) { prevEl.textContent = ""; return; }
         const script = config.commands[activeCmd].script;
         const display = buildDisplayArgs(buildArgs());
+        bus.emit("preview:sync");
         const scriptPath = `tool/python/${script}`;
         prevEl.textContent = `$ ${[config.python, scriptPath, ...display].join(" ")}`;
     }
@@ -1788,6 +1803,41 @@
         tick();
         clockTimer = setInterval(tick, 1000);
     }
+    // ---- Feature API: lets /features/*.js extend this UI without editing this file ----
+    const listeners = {};
+    const bus = {
+        on(type, fn) { (listeners[type] ??= []).push(fn); },
+        emit(type, detail) {
+            for (const fn of listeners[type] ?? []) {
+                try { fn(detail); } catch (err) { console.error(`FTK: "${type}" handler failed`, err); }
+            }
+        },
+    };
+    const panelRenderers = {};
+    function renderCustomPanel(cmd, name) {
+        activeConfig = cmd;
+        configEl.innerHTML = "";
+        renderHeader(cmd);
+        try { panelRenderers[cmd.type](cmd, name, configEl); }
+        catch (err) { console.error(`FTK: panel "${cmd.type}" failed`, err); }
+    }
+    const api = Object.freeze({
+        $, bus, kbd, configEl, ctrlEl,
+        getConfig: () => config,
+        getActiveCmd: () => activeCmd,
+        getActiveConfig: () => activeConfig,
+        isRunning: () => running,
+        isConnected: () => ws?.readyState === 1,
+        buildArgs, syncPreview, executeRun, askConfirm, appendLine, selectCmd,
+        registerPanel(type, fn) { panelRenderers[type] = fn; },
+    });
+    globalThis.FTK = api;
+    function loadFeatures() {
+        import("/features/main.js")
+            .then((m) => m.init(api))
+            .catch((err) => console.warn("FTK: optional UI features not loaded:", err));
+    }
+
     function init() {
         document.body.classList.add("welcome-mode");
         startClock();
@@ -1801,6 +1851,7 @@
         requestNotifyPermission();
         syncAutoClearBtn();
         syncSoundBtn();
+        loadFeatures();
     }
     init();
 }();
