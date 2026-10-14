@@ -138,6 +138,7 @@ def _clean(cfg: ProjectConfig) -> dict:
                  {"flag": "--upgrade", "label": "Pub upgrade --major-versions"},
                  {"flag": "--pub-cache", "label": "Pub cache clean (global)"},
                  {"flag": "--flutter-upgrade", "label": "Flutter SDK upgrade"},
+                 {"flag": "--flutter-upgrade-force", "label": "Force (discard local SDK changes)"},
              ]},
             {"label": "Pub diagnostics", "type": "checkboxes", "options": [
                  {"flag": "--pub-outdated", "label": "Pub outdated (report only)"},
