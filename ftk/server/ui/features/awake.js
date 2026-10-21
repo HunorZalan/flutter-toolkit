@@ -10,6 +10,17 @@ const TITLES = {
     on: "Keep awake: ON until you turn it off\nClick to turn it off",
 };
 
+async function call(method, body) {
+    const opts = { method };
+    if (body) { 
+        opts.headers = { "Content-Type": "application/json" }; 
+        opts.body = JSON.stringify(body); 
+    }
+    const res = await fetch(ENDPOINT, opts);
+    if (!res.ok) { throw new Error(`HTTP ${res.status}`); }
+    return res.json();
+}
+
 export function init(api) {
     const btn = api.$("awake-btn");
     if (!btn) { return; }
@@ -18,7 +29,12 @@ export function init(api) {
     let lock = null;
     const lockApi = typeof navigator !== "undefined" && "wakeLock" in navigator;
 
-    const mode = () => (!state.active ? "off" : (state.auto_off ? "run" : "on"));
+    const mode = () => {
+        if (!state.active) {
+            return "off";
+        }
+        return state.auto_off ? "run" : "on";
+    };
 
     function render() {
         const m = mode();
@@ -47,14 +63,6 @@ export function init(api) {
         }
     }
 
-    async function call(method, body) {
-        const opts = { method };
-        if (body) { opts.headers = { "Content-Type": "application/json" }; opts.body = JSON.stringify(body); }
-        const res = await fetch(ENDPOINT, opts);
-        if (!res.ok) { throw new Error(`HTTP ${res.status}`); }
-        return res.json();
-    }
-
     async function refresh(userAction = false) {
         const was = state.active;
         try { state = await call("GET"); }
@@ -69,8 +77,14 @@ export function init(api) {
     async function toggle() {
         if (busy) { return; }
         const m = mode();
-        const body = m === "off" ? { enabled: true, auto_off: true }
-            : (m === "run" ? { enabled: true, auto_off: false } : { enabled: false });
+        let body;
+        if (m === "off") {
+            body = { enabled: true, auto_off: true };
+        } else if (m === "run") {
+            body = { enabled: true, auto_off: false };
+        } else {
+            body = { enabled: false };
+        }
         busy = true;
         render();
         try { state = await call("POST", body); }

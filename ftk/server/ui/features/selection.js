@@ -30,7 +30,7 @@ export function mergeSnapshots(old, cur) {
     return {
         on: [...cur.on, ...(old.on ?? []).filter((f) => !known.has(f))],
         off: [...cur.off, ...(old.off ?? []).filter((f) => !known.has(f))],
-        sel: { ...(old.sel ?? {}), ...cur.sel },
+        sel: { ...(old.sel), ...cur.sel },
     };
 }
 
@@ -38,24 +38,49 @@ export function mergeSnapshots(old, cur) {
  * Put a snapshot back into the panel. The core re-runs its constraint / preset sync on every
  * `change`, so we dispatch one and apply again (an option may only become enabled afterwards).
  */
+function applyCheckboxesPass(root, on, off) {
+    let changed = false;
+    for (const cb of boxes(root)) {
+        if (cb.disabled) { continue; }
+        let want = null;
+        if (on.has(cb.dataset.flag)) {
+            want = true;
+        } else if (off.has(cb.dataset.flag)) {
+            want = false;
+        }
+        if (want !== null && cb.checked !== want) {
+            cb.checked = want;
+            changed = true;
+        }
+    }
+    return changed;
+}
+
+function applySelectsPass(root, snap) {
+    let changed = false;
+    for (const s of root.querySelectorAll("select:not(:disabled)")) {
+        const want = snap.sel?.[groupLabel(s)];
+        if (want === undefined || s.value === want) { continue; }
+        const hasValidOption = [...s.options].some((o) => o.value === want && !o.disabled);
+        if (hasValidOption) {
+            s.value = want;
+            changed = true;
+        }
+    }
+    return changed;
+}
+
 export function applySnapshot(root, snap) {
     if (!snap) { return false; }
     const on = new Set(snap.on ?? []);
     const off = new Set(snap.off ?? []);
     let touched = false;
     for (let pass = 0; pass < 3; pass++) {
-        let changed = false;
-        for (const cb of boxes(root)) {
-            if (cb.disabled) { continue; }
-            const want = on.has(cb.dataset.flag) ? true : (off.has(cb.dataset.flag) ? false : null);
-            if (want !== null && cb.checked !== want) { cb.checked = want; changed = true; }
+        const cbChanged = applyCheckboxesPass(root, on, off);
+        const selChanged = applySelectsPass(root, snap);
+        if (!cbChanged && !selChanged) {
+            break;
         }
-        for (const s of root.querySelectorAll("select:not(:disabled)")) {
-            const want = snap.sel?.[groupLabel(s)];
-            if (want === undefined || s.value === want) { continue; }
-            if ([...s.options].some((o) => o.value === want && !o.disabled)) { s.value = want; changed = true; }
-        }
-        if (!changed) { break; }
         touched = true;
         root.querySelector("input:not(:disabled),select:not(:disabled)")
             ?.dispatchEvent(new Event("change", { bubbles: true }));

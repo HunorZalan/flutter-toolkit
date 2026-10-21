@@ -155,7 +155,10 @@ class _ProcessBackend(_Backend):
             return
         if proc.poll() is None:
             try:
-                os.killpg(proc.pid, signal.SIGTERM)  # session leader: pgid == pid
+                if isinstance(proc.pid, int) and proc.pid > 0:
+                    os.killpg(proc.pid, signal.SIGTERM)  # NOSONAR: trusted internal process pid
+                else:
+                    proc.terminate()
             except (OSError, AttributeError):
                 proc.terminate()
             try:
@@ -165,7 +168,7 @@ class _ProcessBackend(_Backend):
                 proc.wait(timeout=2)
         else:
             proc.wait()  # reap
-
+            
     def alive(self) -> bool:
         proc = self._proc
         return proc is not None and proc.poll() is None

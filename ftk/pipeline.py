@@ -86,6 +86,33 @@ def _run_step(root: str, step: list) -> int:
         return 127
 
 
+def _execute_steps(cfg_root, steps, total, keep_going):
+    results = []  # (label, exit code or None when skipped, seconds)
+    first_failure = 0
+    stopped = False
+    
+    for i, step in enumerate(steps, 1):
+        label = " ".join(step)
+        if stopped:
+            _say(f"– Step {i}/{total} skipped ({label})")
+            results.append((label, None, 0.0))
+            continue
+            
+        _say(f"\n=== Step {i}/{total}: {label} ===")
+        t0 = time.monotonic()
+        rc = _run_step(cfg_root, step)
+        took = time.monotonic() - t0
+        results.append((label, rc, took))
+        
+        if rc == 0:
+            _say(f"✔ Step {i}/{total} finished (exit 0, {took:.1f}s)")
+        else:
+            _say(f"✘ Step {i}/{total} failed (exit {rc}, {took:.1f}s)")
+            first_failure = first_failure or rc
+            stopped = not keep_going
+            
+    return results, first_failure
+
 def run(cfg, argv) -> int:
     _ensure_utf8()
     try:
@@ -94,6 +121,7 @@ def run(cfg, argv) -> int:
         _say(f"✘ pipeline: {exc}", err=True)
         _say(USAGE, err=True)
         return 2
+        
     total = len(steps)
     if plan:
         _say("=== Queue plan ===")
@@ -101,27 +129,8 @@ def run(cfg, argv) -> int:
             _say(f"{i}. {' '.join(step)}")
         return 0
 
-    results = []  # (label, exit code or None when skipped, seconds)
-    first_failure = 0
-    stopped = False
     began = time.monotonic()
-    for i, step in enumerate(steps, 1):
-        label = " ".join(step)
-        if stopped:
-            _say(f"– Step {i}/{total} skipped ({label})")
-            results.append((label, None, 0.0))
-            continue
-        _say(f"\n=== Step {i}/{total}: {label} ===")
-        t0 = time.monotonic()
-        rc = _run_step(cfg.root, step)
-        took = time.monotonic() - t0
-        results.append((label, rc, took))
-        if rc == 0:
-            _say(f"✔ Step {i}/{total} finished (exit 0, {took:.1f}s)")
-        else:
-            _say(f"✘ Step {i}/{total} failed (exit {rc}, {took:.1f}s)")
-            first_failure = first_failure or rc
-            stopped = not keep_going
+    results, first_failure = _execute_steps(cfg.root, steps, total, keep_going)
 
     _say("\n=== Queue summary ===")
     for n, (label, rc, took) in enumerate(results, 1):
@@ -131,6 +140,7 @@ def run(cfg, argv) -> int:
             _say(f"✔ {n}. {label}  ({took:.1f}s)")
         else:
             _say(f"✘ {n}. {label}  (exit {rc}, {took:.1f}s)")
+            
     done = sum(1 for _, rc, _ in results if rc == 0)
     _say(f"{done}/{total} step(s) succeeded in {time.monotonic() - began:.1f}s")
     return first_failure

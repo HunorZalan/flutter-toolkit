@@ -676,7 +676,7 @@ class _AppHandlers:
             return Response(status_code=404)
         return Response(content=path.read_bytes(), media_type=mime, headers=_NO_CACHE)
 
-    async def api_restart(self) -> dict:
+    def api_restart(self) -> dict:
         if self._state.active_client is not None:
             return {"ok": False, "reason": "A command is currently running."}
 

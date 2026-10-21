@@ -47,7 +47,7 @@
 .status-fail .qs-state,.status-lost .qs-state{color:var(--error)}
 .queue-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
 .queue-chip{padding:1px 8px;border-radius:10px;background:var(--bg3);color:var(--text2);font-size:11px}
-.queue-chip.warn{background:rgba(245,158,11,.18);color:#b45309}
+.queue-chip.warn{background:#fef3c7;color:#78350f}
 .dark .queue-chip.warn{color:#fbbf24}
 .qs-cli{display:block;margin-top:5px;font-family:Consolas,Menlo,monospace;font-size:11px;color:var(--text2);word-break:break-all}
 .qs-actions{display:flex;gap:4px}

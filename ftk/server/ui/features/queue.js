@@ -31,8 +31,15 @@ function h(tag, props = {}, ...kids) {
     return el;
 }
 
-const quote = (t) => (/^[\w@%+=:,./-]+$/.test(t) ? t : `"${t.replace(/(["\\$`])/g, "\\$1")}"`);
-const uid = () => Math.random().toString(36).slice(2, 10);
+const quote = (t) => {
+    const safePattern = /^[\w@%+=:,./-]+$/;
+    if (safePattern.test(t)) {
+        return t;
+    }
+    const escaped = t.replaceAll(/(["\\$`])/g, String.raw`\$1`);
+    return `"${escaped}"`;
+};
+const uid = () => crypto.randomUUID();
 
 /** Human readable labels of whatever is selected in the option panel. */
 function describe(root) {
@@ -191,21 +198,42 @@ export function init(api) {
     };
     function onLine(text) {
         const at = (n) => run.ids[Number(n) - 1];
-        let m;
-        if ((m = RE_BANNER.exec(text))) {
+        let m = RE_BANNER.exec(text);
+        if (m) {
             setState(at(m[1]), "running");
             const s = steps.find((x) => x.id === at(m[1]));
             document.title = `▶ ${m[1]}/${m[2]} ${s?.cmd ?? ""} – ${baseTitle()}`;
-        } else if ((m = RE_OK.exec(text))) { setState(at(m[1]), "ok", `${m[3]}s`); }
-        else if ((m = RE_FAIL.exec(text))) { setState(at(m[1]), "fail", `exit ${m[3]} · ${m[4]}s`); }
-        else if ((m = RE_SKIP.exec(text))) { setState(at(m[1]), "skipped"); }
+            return;
+        }
+        m = RE_OK.exec(text);
+        if (m) {
+            setState(at(m[1]), "ok", `${m[3]}s`);
+            return;
+        }
+        m = RE_FAIL.exec(text);
+        if (m) {
+            setState(at(m[1]), "fail", `exit ${m[3]} · ${m[4]}s`);
+            return;
+        }
+        m = RE_SKIP.exec(text);
+        if (m) {
+            setState(at(m[1]), "skipped");
+        }
     }
     function finish(kind, detail = "") {
         if (!run?.active) { return; }
         run.active = false;
         for (const id of run.ids) {
             const st = run.status.get(id);
-            if (st === "running") { run.status.set(id, kind === "stopped" ? "stopped" : (kind === "lost" ? "lost" : "fail")); }
+            if (st === "running") {
+                let statusValue = "fail";
+                if (kind === "stopped") {
+                    statusValue = "stopped";
+                } else if (kind === "lost") {
+                    statusValue = "lost";
+                }
+                run.status.set(id, statusValue);
+            }
             else if (st === "pending") { run.status.set(id, "skipped"); }
         }
         run.note = {
@@ -252,34 +280,36 @@ export function init(api) {
         return h("p", { class: "queue-summary", text });
     }
     const iconBtn = (glyph, title, disabled, fn) => h("button", { type: "button", class: "qs-btn", title, "aria-label": title, disabled, onclick: fn, text: glyph });
+    function renderStep(s, i, frozen) {
+        const st = run?.status.get(s.id);
+        const info = run?.info.get(s.id);
+        const ok = queueable(s.cmd);
+        const mayPrompt = hasFlag(s.cmd, "--yes") && !s.args.includes("--yes");
+
+        return h("li", { class: ["queue-step", s.enabled ? "" : "off", st ? `status-${st}` : "", ok ? "" : "missing"].filter(Boolean).join(" "), "data-id": s.id },
+            h("input", { type: "checkbox", class: "qs-on", checked: s.enabled, disabled: frozen, title: "Include this step", onchange: (e) => mutate(() => { s.enabled = e.target.checked; }) }),
+            h("div", { class: "qs-main" },
+                h("div", { class: "qs-head" },
+                    h("span", { class: "qs-num", text: String(i + 1) }),
+                    h("span", { class: "qs-title", text: s.title }),
+                    st ? h("span", { class: "qs-state", text: STATE_TEXT[st] + (info ? ` · ${info}` : "") }) : null,
+                    ok ? null : h("span", { class: "qs-state", text: "unavailable" })),
+                h("div", { class: "queue-chips" },
+                    ...(s.labels.length ? s.labels : ["defaults"]).map((l) => h("span", { class: "queue-chip", text: l })),
+                    mayPrompt ? h("span", { class: "queue-chip warn", title: "Without --yes this step may stop and wait for your answer", text: "may prompt" }) : null),
+                h("code", { class: "qs-cli", text: [s.cmd, ...s.args].join(" ") })),
+            h("div", { class: "qs-actions" },
+                iconBtn("↑", "Move up", frozen || i === 0, () => move(i, -1)),
+                iconBtn("↓", "Move down", frozen || i === steps.length - 1, () => move(i, 1)),
+                iconBtn("⧉", "Duplicate", frozen, () => dup(i)),
+                iconBtn("✎", "Load these options into the command panel", frozen || !ok, () => edit(s)),
+                iconBtn("✕", "Remove", frozen, () => remove(i)))
+        );
+    }
     function list() {
         const frozen = locked();
-        return h("ol", { class: "queue-list" }, ...steps.map((s, i) => {
-            const st = run?.status.get(s.id);
-            const info = run?.info.get(s.id);
-            const ok = queueable(s.cmd);
-            const mayPrompt = hasFlag(s.cmd, "--yes") && !s.args.includes("--yes");
-            return h("li", { class: ["queue-step", s.enabled ? "" : "off", st ? `status-${st}` : "", ok ? "" : "missing"].filter(Boolean).join(" "), "data-id": s.id },
-                h("input", { type: "checkbox", class: "qs-on", checked: s.enabled, disabled: frozen, title: "Include this step", onchange: (e) => mutate(() => { s.enabled = e.target.checked; }) }),
-                h("div", { class: "qs-main" },
-                    h("div", { class: "qs-head" },
-                        h("span", { class: "qs-num", text: String(i + 1) }),
-                        h("span", { class: "qs-title", text: s.title }),
-                        st ? h("span", { class: "qs-state", text: STATE_TEXT[st] + (info ? ` · ${info}` : "") }) : null,
-                        ok ? null : h("span", { class: "qs-state", text: "unavailable" })),
-                    h("div", { class: "queue-chips" },
-                        ...(s.labels.length ? s.labels : ["defaults"]).map((l) => h("span", { class: "queue-chip", text: l })),
-                        mayPrompt ? h("span", { class: "queue-chip warn", title: "Without --yes this step may stop and wait for your answer", text: "may prompt" }) : null),
-                    h("code", { class: "qs-cli", text: [s.cmd, ...s.args].join(" ") })),
-                h("div", { class: "qs-actions" },
-                    iconBtn("↑", "Move up", frozen || i === 0, () => move(i, -1)),
-                    iconBtn("↓", "Move down", frozen || i === steps.length - 1, () => move(i, 1)),
-                    iconBtn("⧉", "Duplicate", frozen, () => dup(i)),
-                    iconBtn("✎", "Load these options into the command panel", frozen || !ok, () => edit(s)),
-                    iconBtn("✕", "Remove", frozen, () => remove(i))));
-        }));
+        return h("ol", { class: "queue-list" }, ...steps.map((s, i) => renderStep(s, i, frozen)));
     }
-
     api.registerPanel("queue", (_cmd, _name, root) => {
         panel = h("div", { class: "queue-panel" });
         root.appendChild(panel);

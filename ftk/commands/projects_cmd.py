@@ -292,7 +292,7 @@ def cmd_projects(argv=None) -> int:
     parser.print_help()
     return 1
 
-def run(cfg, argv: list[str] | None = None) -> int:
+def run(_cfg, argv: list[str] | None = None) -> int:
     """Entry point expected by ftk.cli.
 
     The project registry doesn't operate on a specific project's

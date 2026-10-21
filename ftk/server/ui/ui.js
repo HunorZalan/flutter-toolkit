@@ -1806,7 +1806,12 @@
     // ---- Feature API: lets /features/*.js extend this UI without editing this file ----
     const listeners = {};
     const bus = {
-        on(type, fn) { (listeners[type] ??= []).push(fn); },
+        on(type, fn) {
+            if (!listeners[type]) {
+                listeners[type] = [];
+            }
+            listeners[type].push(fn);
+        },
         emit(type, detail) {
             for (const fn of listeners[type] ?? []) {
                 try { fn(detail); } catch (err) { console.error(`FTK: "${type}" handler failed`, err); }
@@ -1833,11 +1838,10 @@
     });
     globalThis.FTK = api;
     function loadFeatures() {
-        import("/features/main.js")
+        import("./features/main.js")
             .then((m) => m.init(api))
             .catch((err) => console.warn("FTK: optional UI features not loaded:", err));
     }
-
     function init() {
         document.body.classList.add("welcome-mode");
         startClock();

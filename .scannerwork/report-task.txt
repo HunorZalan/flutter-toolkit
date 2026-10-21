@@ -1,0 +1,6 @@
+projectKey=eu.mydroot.www:ftk
+serverUrl=http://127.0.0.1:9009
+serverVersion=26.3.0.120487
+dashboardUrl=http://127.0.0.1:9009/dashboard?id=eu.mydroot.www%3Aftk
+ceTaskId=64806f22-d5a8-42b4-b89d-0f1e61e5d873
+ceTaskUrl=http://127.0.0.1:9009/api/ce/task?id=64806f22-d5a8-42b4-b89d-0f1e61e5d873

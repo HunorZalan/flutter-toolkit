@@ -29,22 +29,8 @@ def split_steps(args: list) -> list:
     return steps
 
 
-def prepare_queue_command(cfg, commands_config: dict, args: list,
-                          prepare_one: Callable) -> Optional[tuple]:
-    """Return ``(cmd, merged_args, script)`` for the whole chain, or None when invalid."""
-    block = commands_config.get("queue")
-    if not block or block.get("disabled"):
-        return None
-    rest = list(args)
-    lead: list = []
-    while rest and rest[0] in LEADING_FLAGS:
-        flag = rest.pop(0)
-        if flag not in lead:
-            lead.append(flag)
-    steps = split_steps(rest)
-    if len(steps) > MAX_STEPS or any(not s for s in steps):
-        return None
-    argv = list(lead)
+def _build_step_argv(cfg, commands_config, steps, prepare_one) -> Optional[list]:
+    argv = []
     for i, step in enumerate(steps):
         name, flags = step[0], step[1:]
         if not isinstance(name, str) or name in STEP_EXCLUDED:
@@ -56,6 +42,31 @@ def prepare_queue_command(cfg, commands_config: dict, args: list,
             argv.append(SEP)
         argv.append(name)
         argv.extend(prepared[1])  # validated flags (+ injected ones)
+    return argv
+
+def prepare_queue_command(cfg, commands_config: dict, args: list,
+                          prepare_one: Callable) -> Optional[tuple]:
+    """Return ``(cmd, merged_args, script)`` for the whole chain, or None when invalid."""
+    block = commands_config.get("queue")
+    if not block or block.get("disabled"):
+        return None
+        
+    rest = list(args)
+    lead: list = []
+    while rest and rest[0] in LEADING_FLAGS:
+        flag = rest.pop(0)
+        if flag not in lead:
+            lead.append(flag)
+            
+    steps = split_steps(rest)
+    if len(steps) > MAX_STEPS or any(not s for s in steps):
+        return None
+        
+    step_argv = _build_step_argv(cfg, commands_config, steps, prepare_one)
+    if step_argv is None:
+        return None
+        
+    argv = list(lead) + step_argv
     cmd = [sys.executable, "-m", "ftk.pipeline", "--root", cfg.root, *argv]
     return cmd, argv, "pipeline"
 

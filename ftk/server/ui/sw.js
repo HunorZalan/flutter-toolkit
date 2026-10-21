@@ -17,7 +17,7 @@ self.addEventListener('install', (event) => {
             );
             const failed = results.filter(r => r.status === 'rejected');
             if (failed.length) { console.warn('FTK SW: some assets failed to precache:', failed.map(f => f.reason?.message)); }
-            await self.skipWaiting();
+            await globalThis.skipWaiting();
         })()
     );
 });
@@ -26,7 +26,7 @@ self.addEventListener('activate', (event) => {
         (async () => {
             const cacheNames = await caches.keys();
             await Promise.all(cacheNames.map((cache) => { if (cache !== CACHE_NAME) { return caches.delete(cache); }}));
-            await self.clients.claim();
+            await globalThis.clients.claim();
         })()
     );
 });
@@ -39,7 +39,7 @@ self.addEventListener('fetch', (event) => {
         (async () => {
             try {
                 const networkResponse = await fetch(event.request);
-                if (networkResponse && networkResponse.status === 200 &&
+                if (networkResponse?.status === 200 &&
                     (networkResponse.type === 'basic' || networkResponse.type === 'cors')) {
                     const cache = await caches.open(CACHE_NAME);
                     cache.put(event.request, networkResponse.clone());
