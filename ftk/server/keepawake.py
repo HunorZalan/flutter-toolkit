@@ -155,12 +155,9 @@ class _ProcessBackend(_Backend):
             return
         if proc.poll() is None:
             try:
-                if isinstance(proc.pid, int) and proc.pid > 0:
-                    os.killpg(proc.pid, signal.SIGTERM)  # NOSONAR: trusted internal process pid
-                else:
-                    proc.terminate()
-            except (OSError, AttributeError):
                 proc.terminate()
+            except (OSError, AttributeError):
+                pass
             try:
                 proc.wait(timeout=2)
             except subprocess.TimeoutExpired:
