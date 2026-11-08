@@ -161,6 +161,7 @@ class CommandToggles:
     notes: bool = True
     help: bool = True
     queue: bool = True
+    codegen: bool = True
 
 
 @dataclass

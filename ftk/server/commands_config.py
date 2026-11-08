@@ -372,10 +372,9 @@ def _icons(cfg: ProjectConfig) -> dict:
             {"flag": "-n", "label": "Only generate missing files"},
         ]},
     ])
-    mobile_flags = [f for f in ["-p ios", "-p android"]
-                     if not _platform_disabled(cfg, f.split()[-1])]
-    desktop_flags = [f for f in ["-p windows", "-p macos", "-p linux"]
-                      if not _platform_disabled(cfg, f.split()[-1])]
+    mobile_flags  = [f for f in ("-p ios", "-p android") if cfg.platform_enabled(f.split()[-1])]
+    desktop_flags = [f for f in ("-p windows", "-p macos", "-p linux") if cfg.platform_enabled(f.split()[-1])]
+    
     return {
         "title": "Icon Generator", "icon": "palette",
         "description": "Generate iOS/Android/Web/Desktop icons. Requires Pillow.",
@@ -388,7 +387,7 @@ def _icons(cfg: ProjectConfig) -> dict:
             {"label": "Desktop", "flags": desktop_flags,
              "disabled": not desktop_flags},
         ],
-        "disabled": not cfg.has_flavors,
+        # "disabled": not cfg.has_flavors,
     }
 
 
@@ -509,17 +508,17 @@ def _deploy(cfg: ProjectConfig) -> dict:
 # ---- Run ----
 
 def _run_cmds(cfg: ProjectConfig) -> dict:
-    _mobile: list[tuple[str, str, str]] = [
-        ("android", "Android \u00b7 Debug",   "flutter run --flavor {f} --debug --dart-define=FLAVOR={f}"),
-        ("android", "Android \u00b7 Release", "flutter run --flavor {f} --release --dart-define=FLAVOR={f}"),
-        ("android", "Android \u00b7 Profile", "flutter run --flavor {f} --profile --dart-define=FLAVOR={f}"),
-        ("ios",     "iOS \u00b7 Debug",       "flutter run --flavor {f} --debug --dart-define=FLAVOR={f}"),
-        ("ios",     "iOS \u00b7 Release",     "flutter run --flavor {f} --release --dart-define=FLAVOR={f}"),
-        ("ios",     "iOS \u00b7 Profile",     "flutter run --flavor {f} --profile --dart-define=FLAVOR={f}"),
-    ]
     cmds: list[dict] = []
     if cfg.has_flavors:
-        _other: list[tuple[str, str, str]] = [
+        _mobile = [
+            ("android", "Android \u00b7 Debug",   "flutter run --flavor {f} --debug --dart-define=FLAVOR={f}"),
+            ("android", "Android \u00b7 Release", "flutter run --flavor {f} --release --dart-define=FLAVOR={f}"),
+            ("android", "Android \u00b7 Profile", "flutter run --flavor {f} --profile --dart-define=FLAVOR={f}"),
+            ("ios",     "iOS \u00b7 Debug",       "flutter run --flavor {f} --debug --dart-define=FLAVOR={f}"),
+            ("ios",     "iOS \u00b7 Release",     "flutter run --flavor {f} --release --dart-define=FLAVOR={f}"),
+            ("ios",     "iOS \u00b7 Profile",     "flutter run --flavor {f} --profile --dart-define=FLAVOR={f}"),
+        ]
+        _other = [
             ("web",     "Web (Chrome)",  "flutter run -d chrome --dart-define=FLAVOR={f}"),
             ("windows", "Windows",       "flutter run -d windows --dart-define=FLAVOR={f} --debug"),
             ("macos",   "macOS",         "flutter run -d macos --flavor {f} --debug"),
@@ -528,16 +527,19 @@ def _run_cmds(cfg: ProjectConfig) -> dict:
         for platform, label, fmt in _mobile + _other:
             disabled = _platform_disabled(cfg, platform)
             for f in cfg.flavors:
-                cmds.append({"cmd": fmt.format(f=f.name), "mode": label,
-                             "disabled": disabled})
+                cmds.append({"cmd": fmt.format(f=f.name), "mode": label, "disabled": disabled})
     else:
-        _plain: list[tuple[str, str, str]] = [
-            ("web",     "Web (Chrome)",  "flutter run -d chrome"),
-            ("windows", "Windows",       "flutter run -d windows --debug"),
-            ("macos",   "macOS",         "flutter run -d macos --debug"),
-            ("linux",   "Linux",         "flutter run -d linux --debug"),
-        ]
-        for platform, label, raw in _mobile + _plain:
+        mobile_off = _platform_disabled(cfg, "android") and _platform_disabled(cfg, "ios")
+        for mode in ("debug", "release", "profile"):
+            cmds.append({"cmd": f"flutter run --{mode}",
+                         "mode": f"Mobile \u00b7 {mode.capitalize()}",
+                         "disabled": mobile_off})
+        for platform, label, raw in [
+            ("web",     "Web (Chrome)", "flutter run -d chrome"),
+            ("windows", "Windows",      "flutter run -d windows --debug"),
+            ("macos",   "macOS",        "flutter run -d macos --debug"),
+            ("linux",   "Linux",        "flutter run -d linux --debug"),
+        ]:
             cmds.append({"cmd": raw, "mode": label,
                          "disabled": _platform_disabled(cfg, platform)})
     return {

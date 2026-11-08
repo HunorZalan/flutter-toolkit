@@ -172,6 +172,7 @@ def _check_usage(dart_keys, reachable_content, unreachable_content):
         f"'{n}' -> never referenced in lib"
         for n in sorted(dart_keys)
         if n not in reachable_content and n not in unreachable_content
+        # re.search(rf"\.{n}\b", content)
     ]
 
     dead = [
@@ -284,21 +285,14 @@ def _run_quality_checks(dart_keys, translations):
         ok("No duplicate values within any language.")
     total += c
 
-    header("9 - Empty or whitespace-only values")
     total += _check_empty_values(translations)
-
     header("10 - Placeholder consistency")
     c = _check_placeholders(translations)
     if c == 0:
         ok("All placeholders are consistent.")
     total += c
-
-    header("11 - Naming convention (camelCase)")
     total += _check_naming(dart_keys)
-
-    header("12 - Leading or trailing whitespace")
     total += _check_whitespace(translations)
-
     return total
 
 
@@ -317,18 +311,43 @@ def _check_unreachable_dart(existing, unreachable, lib_dir, root):
     return len(un)
 
 
+_PLURAL_KEYS = {"zero", "one", "two", "few", "many", "other"}
+
+def _flatten(data: dict, prefix: str = "") -> dict[str, str]:
+    out: dict[str, str] = {}
+    for k, v in data.items():
+        key = f"{prefix}{k}"
+        if isinstance(v, dict):
+            if v and set(v) <= _PLURAL_KEYS and all(isinstance(x, str) for x in v.values()):
+                out[key] = " | ".join(f"{c}: {v[c]}" for c in sorted(v))
+            else:
+                out.update(_flatten(v, f"{key}."))   # "a.b"
+        elif isinstance(v, str):
+            out[key] = v
+        elif v is None:
+            out[key] = ""
+        else:
+            out[key] = str(v)
+    return out
+
+
 def _load_translations(trans_dir, langs):
     translations: dict[str, dict] = {}
-
     for lang in langs:
         path = os.path.join(trans_dir, f"{lang}.json")
         if not os.path.isfile(path):
             err(f"{path} not found!")
             return None
-
-        with open(path, encoding="utf-8") as f:
-            translations[lang] = json.load(f)
-
+        try:
+            with open(path, encoding="utf-8-sig") as f:   # -sig: Windows BOM
+                raw = json.load(f)
+        except json.JSONDecodeError as exc:
+            err(f"{path}: invalid JSON ({exc})")
+            return None
+        if not isinstance(raw, dict):
+            err(f"{path}: top level must be an object.")
+            return None
+        translations[lang] = _flatten(raw)
     return translations
 
 

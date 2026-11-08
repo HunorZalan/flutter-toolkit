@@ -114,21 +114,53 @@ def _require_pil():
 def _p(root: str, *parts: str) -> str:
     return os.path.join(root, *parts)
 
+@dataclass(frozen=True)
+class IconTarget:
+    label: str
+    sources: tuple[str, ...]
+    android_src_set: str 
+    ios_iconset: str
+    web_folder: str
+    notification_color: str
+    adaptive_bg: str
+    colors_file: str
 
-def _load_source(root: str, flavor: FlavorConfig, pil_image):
-    primary = _p(root, flavor.source_primary)
-    if os.path.exists(primary):
-        info(f"Source (primary) : {primary}")
-        img = pil_image.open(primary).convert("RGBA")
-        info(f"Size             : {img.width}x{img.height}px")
-        return img
-    fallback = _p(root, flavor.splash_source)
-    if not os.path.exists(fallback):
-        raise FileNotFoundError(f"Source image not found: {primary} or {fallback}")
-    info(f"Source (fallback): {fallback}")
-    img = pil_image.open(fallback).convert("RGBA")
-    info(f"Size             : {img.width}x{img.height}px")
-    return img
+
+def _target_from_flavor(f: FlavorConfig) -> IconTarget:
+    return IconTarget(
+        label=f.name,
+        sources=(f.source_primary, f.splash_source),
+        android_src_set=f.name,
+        ios_iconset=f"AppIcon-{f.name}",
+        web_folder=f.web_folder,
+        notification_color=f.notification_color,
+        adaptive_bg=f.adaptive_bg,
+        colors_file="colors.xml",
+    )
+
+
+def _default_target() -> IconTarget:
+    return IconTarget(
+        label="default",
+        sources=("tool/icons/icon.png", "assets/icon/icon.png", "assets/img/splash.png"),
+        android_src_set="main",
+        ios_iconset="AppIcon",
+        web_folder="web/icons",
+        notification_color="#1B5E20",
+        adaptive_bg="#FFFFFF",
+        colors_file="ic_launcher_colors.xml",
+    )
+
+
+def _load_source(root, target, pil_image):
+    for i, rel in enumerate(target.sources):
+        path = _p(root, rel)
+        if os.path.exists(path):
+            info(f"Source ({'primary' if i == 0 else 'fallback'}): {path}")
+            img = pil_image.open(path).convert("RGBA")
+            info(f"Size             : {img.width}x{img.height}px")
+            return img
+    raise FileNotFoundError("Source image not found: " + " or ".join(_p(root, s) for s in target.sources))
 
 
 def _make_circle_mask(pil_image, pil_draw, size: int):
@@ -136,6 +168,16 @@ def _make_circle_mask(pil_image, pil_draw, size: int):
     pil_draw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)
     return mask
 
+def _contain(pil_image, img, box: int):
+    scale = min(box / img.width, box / img.height)
+    size = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
+    return img.resize(size, pil_image.Resampling.LANCZOS)
+
+def _fit_square(pil_image, src, size: int):
+    canvas = pil_image.new("RGBA", (size, size), TRANSPARENT)
+    logo = _contain(pil_image, src, size)
+    canvas.paste(logo, ((size - logo.width) // 2, (size - logo.height) // 2), logo)
+    return canvas
 
 def _paste_centered(pil_image, canvas, logo, size: int, ratio: float):
     logo = logo.copy()
@@ -226,11 +268,11 @@ def _adaptive_xml(fg_ref: str, bg_ref: str) -> str:
     )
 
 
-def _colors_xml(notif_hex: str) -> str:
+def _colors_xml(bg_hex: str, notif_hex: str) -> str:
     return (
         '<?xml version="1.0" encoding="utf-8"?>\n'
         "<resources>\n"
-        '    <color name="ic_launcher_background">#ffffff</color>\n'
+        f'    <color name="ic_launcher_background">{bg_hex}</color>\n'
         f'    <color name="notification_color">{notif_hex}</color>\n'
         "</resources>\n"
     )
@@ -240,10 +282,10 @@ def _colors_xml(notif_hex: str) -> str:
 # Per-platform generators
 # ---------------------------------------------------------------------------
 
-def _gen_ios(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil_draw) -> None:
+def _gen_ios(root: str, target: IconTarget, only_new: bool, pil_image, pil_draw) -> None:
     info("[iOS] Generating icons...")
-    src = _load_source(root, flavor, pil_image)
-    out_dir = _p(root, "ios", "Runner", _ASSET_XCASSETS, f"AppIcon-{flavor.name}.appiconset")
+    src = _load_source(root, target, pil_image)
+    out_dir = _p(root, "ios", "Runner", _ASSET_XCASSETS, f"{target.ios_iconset}.appiconset")
     os.makedirs(out_dir, exist_ok=True)
     written = 0
     for spec in IOS_ICONS:
@@ -269,10 +311,10 @@ ICON_LAUNCHER_XML = "ic_launcher.xml"
 ICON_LAUNCHER_ROUND_XML = "ic_launcher_round.xml"
 COLORS_XML = "colors.xml"
 
-def _gen_android(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil_draw) -> None:
+def _gen_android(root: str, target: IconTarget, only_new: bool, pil_image, pil_draw) -> None:
     info("[Android] Generating icons...")
-    src = _load_source(root, flavor, pil_image)
-    base_dir = _p(root, "android", "app", "src", flavor.name, "res")
+    src = _load_source(root, target, pil_image)
+    base_dir = _p(root, "android", "app", "src", target.android_src_set, "res")
     info("mipmap icons:")
     for density in ANDROID_DENSITIES:
         out = os.path.join(base_dir, f"mipmap-{density.folder}")
@@ -294,15 +336,14 @@ def _gen_android(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil
     xml = _adaptive_xml("@mipmap/ic_launcher_foreground", "@color/ic_launcher_background")
     _write_xml(os.path.join(any_dir, ICON_LAUNCHER_XML),       xml, only_new)
     _write_xml(os.path.join(any_dir, ICON_LAUNCHER_ROUND_XML), xml, only_new)
-    _write_xml(os.path.join(base_dir, "values", COLORS_XML),
-               _colors_xml(flavor.notification_color), only_new)
+    _write_xml(os.path.join(base_dir, "values", target.colors_file), _colors_xml(target.adaptive_bg, target.notification_color), only_new)
     info(f"-> Android icons in {base_dir}")
 
 
-def _gen_web(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil_draw) -> None:
+def _gen_web(root: str, target: IconTarget, only_new: bool, pil_image, pil_draw) -> None:
     info("[Web] Generating icons...")
-    src = _load_source(root, flavor, pil_image)
-    out_dir = _p(root, flavor.web_folder)
+    src = _load_source(root, target, pil_image)
+    out_dir = _p(root, target.web_folder)
     os.makedirs(out_dir, exist_ok=True)
     theme_color = _dominant_color(pil_image, src)
     info(f"Theme color: RGB{theme_color[:3]}")
@@ -365,9 +406,9 @@ def _gen_web(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil_dra
         print(f"      ~ {'favicon.ico':<44} (skip)")
 
 
-def _gen_windows(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil_draw) -> None:
+def _gen_windows(root: str, target: IconTarget, only_new: bool, pil_image, pil_draw) -> None:
     info("[Windows] Generating .ico...")
-    src = _load_source(root, flavor, pil_image)
+    src = _load_source(root, target, pil_image)
     dest = _p(root, "windows", "runner", "resources", "app_icon.ico")
     if not _should_write(dest, only_new):
         print("      ~ app_icon.ico (skip)")
@@ -380,9 +421,9 @@ def _gen_windows(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil
     info(f"-> Windows icon in {dest}")
 
 
-def _gen_macos(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil_draw) -> None:
+def _gen_macos(root: str, target: IconTarget, only_new: bool, pil_image, pil_draw) -> None:
     info("[macOS] Generating icons...")
-    src = _load_source(root, flavor, pil_image)
+    src = _load_source(root, target, pil_image)
     out_dir = _p(root, "macos", "Runner", _ASSET_XCASSETS, "AppIcon.appiconset")
     os.makedirs(out_dir, exist_ok=True)
     written, seen = 0, set()
@@ -400,9 +441,9 @@ def _gen_macos(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil_d
     info(f"-> {written}/{len(seen)} macOS icons in {out_dir}")
 
 
-def _gen_linux(root: str, flavor: FlavorConfig, only_new: bool, pil_image, pil_draw) -> None:
+def _gen_linux(root: str, target: IconTarget, only_new: bool, pil_image, pil_draw) -> None:
     info("[Linux] Generating icons...")
-    src = _load_source(root, flavor, pil_image)
+    src = _load_source(root, target, pil_image)
     base_dir = _p(root, "linux", "icons")
     os.makedirs(base_dir, exist_ok=True)
     count = 0
@@ -437,8 +478,8 @@ def _check(path: str, label: str) -> bool:
     return exists
 
 
-def _verify_ios(root: str, flavor: FlavorConfig) -> bool:
-    d = _p(root, "ios", "Runner", _ASSET_XCASSETS, f"AppIcon-{flavor.name}.appiconset")
+def _verify_ios(root: str, target: IconTarget) -> bool:
+    d = _p(root, "ios", "Runner", _ASSET_XCASSETS, f"{target.ios_iconset}.appiconset")
     expected = {s.filename for s in IOS_ICONS}
     found = {f for f in os.listdir(d) if f.endswith(".png")} if os.path.isdir(d) else set()
     missing = expected - found
@@ -448,8 +489,8 @@ def _verify_ios(root: str, flavor: FlavorConfig) -> bool:
     return not missing
 
 
-def _verify_android(root: str, flavor: FlavorConfig) -> bool:
-    base = _p(root, "android", "app", "src", flavor.name, "res")
+def _verify_android(root: str, target: IconTarget) -> bool:
+    base = _p(root, "android", "app", "src", target.android_src_set, "res")
     paths = [
         (os.path.join(base, "mipmap-xxxhdpi",    ICON_LAUNCHER),            f"mipmap-xxxhdpi/{ICON_LAUNCHER}"),
         (os.path.join(base, "mipmap-xxxhdpi",    ICON_LAUNCHER_ROUND),      f"mipmap-xxxhdpi/{ICON_LAUNCHER_ROUND}"),
@@ -462,8 +503,8 @@ def _verify_android(root: str, flavor: FlavorConfig) -> bool:
     return all(_check(p, l) for p, l in paths)
 
 
-def _verify_web(root: str, flavor: FlavorConfig) -> bool:
-    out = _p(root, flavor.web_folder)
+def _verify_web(root: str, target: IconTarget) -> bool:
+    out = _p(root, target.web_folder)
     expected = (
         {f"Icon-{s}.png" for s in WEB_STANDARD_SIZES}
         | {f"Icon-maskable-{s}.png" for s in WEB_MASKABLE_SIZES}
@@ -483,11 +524,11 @@ def _verify_web(root: str, flavor: FlavorConfig) -> bool:
     return ok
 
 
-def _verify_windows(root: str, flavor: FlavorConfig) -> bool:
+def _verify_windows(root: str, target: IconTarget) -> bool:
     return _check(_p(root, "windows", "runner", "resources", "app_icon.ico"), "Windows: app_icon.ico")
 
 
-def _verify_macos(root: str, flavor: FlavorConfig) -> bool:
+def _verify_macos(root: str, target: IconTarget) -> bool:
     out = _p(root, "macos", "Runner", _ASSET_XCASSETS, "AppIcon.appiconset")
     expected = {fn for _, _, fn in MACOS_ICON_SIZES}
     found = {f for f in os.listdir(out) if f.endswith(".png")} if os.path.isdir(out) else set()
@@ -496,7 +537,7 @@ def _verify_macos(root: str, flavor: FlavorConfig) -> bool:
     return not missing
 
 
-def _verify_linux(root: str, flavor: FlavorConfig) -> bool:
+def _verify_linux(root: str, target: IconTarget) -> bool:
     base = _p(root, "linux", "icons")
     expected = {f"app_icon_{s}.png" for s in LINUX_ICON_SIZES}
     found = {f for f in os.listdir(base) if f.endswith(".png")} if os.path.isdir(base) else set()
@@ -515,66 +556,64 @@ _VERIFIERS = {
 # Entry point
 # ---------------------------------------------------------------------------
 
-def _generate_icons(root, flavors, platforms, only_new, pil_image, pil_draw):
-    for flavor in flavors:
-        header(f"FLAVOR: {flavor.name.upper()}")
+def _generate_icons(root, targets, platforms, only_new, pil_image, pil_draw):
+    for target in targets:
+        header(f"FLAVOR: {target.name.upper()}")
         try:
             for plat in platforms:
                 gen = _GENERATORS.get(plat)
                 if gen:
-                    gen(root, flavor, only_new, pil_image, pil_draw)
+                    gen(root, target, only_new, pil_image, pil_draw)
         except FileNotFoundError as exc:
             err(str(exc))
 
 
-def _verify_icons(root, flavors, platforms) -> bool:
+def _verify_icons(root, targets, platforms) -> bool:
     all_ok = True
-    for flavor in flavors:
-        info(f"Flavor: {flavor.name}")
+    for target in targets:
+        info(f"Flavor: {target.name}")
         for plat in platforms:
             verifier = _VERIFIERS.get(plat)
-            if verifier and not verifier(root, flavor):
+            if verifier and not verifier(root, target):
                 all_ok = False
     return all_ok
 
 
 def run(cfg: ProjectConfig, argv: list[str]) -> int:
     init_colours()
-    if not cfg.has_flavors:
-        err("ftk icons requires `flavors:` to be defined in ftk.yaml.")
-        info("Each flavor's source image is resolved via `tool/icons/<DisplayName>.png`.")
-        return 1
-
-    parser = argparse.ArgumentParser(prog="ftk icons", description="Generate app icons for all flavors.")
-    parser.add_argument("--flavor", "-f", nargs="+",
-                        choices=[*cfg.flavor_names, "all"], metavar="FLAVOR",
-                        help=f"Flavors to generate (default: all). Choices: {', '.join(cfg.flavor_names)}, all")
+    parser = argparse.ArgumentParser(prog="ftk icons", description="Generate app icons.")
+    if cfg.has_flavors:
+        parser.add_argument("--flavor", "-f", nargs="+",
+                            choices=[*cfg.flavor_names, "all"], metavar="FLAVOR",
+                            help=f"Flavors (default: all). Choices: {', '.join(cfg.flavor_names)}, all")
     parser.add_argument("--platform", "-p", nargs="+", choices=list(ALL_PLATFORMS),
                         help=f"Platforms (default: {', '.join(PLATFORMS)})")
-    parser.add_argument("--new", "-n", action="store_true",
-                        help="Skip icons that already exist.")
+    parser.add_argument("--new", "-n", action="store_true", help="Skip icons that already exist.")
     args = parser.parse_args(argv)
 
     pil_image, pil_draw = _require_pil()
     if pil_image is None:
         return 1
 
-    if not args.flavor or "all" in args.flavor:
-        selected_flavors = list(cfg.flavors)
+    chosen = getattr(args, "flavor", None)
+    if not cfg.has_flavors:
+        targets = [_default_target()]
+    elif not chosen or "all" in chosen:
+        targets = [_target_from_flavor(f) for f in cfg.flavors]
     else:
-        selected_flavors = [cfg.flavor(n) for n in args.flavor if cfg.flavor(n)]
+        targets = [_target_from_flavor(cfg.flavor(n)) for n in chosen]
     selected_platforms = args.platform or list(PLATFORMS)
 
     header("Flutter Icon Generator")
     info(f"Project root : {cfg.root}")
-    info(f"Flavors      : {', '.join(f.name for f in selected_flavors)}")
+    info(f"Flavors      : {', '.join(f.name for f in targets)}")
     info(f"Platforms    : {', '.join(selected_platforms)}")
     info(f"Mode         : {'only-new (skip existing)' if args.new else 'overwrite'}")
 
-    _generate_icons(cfg.root, selected_flavors, selected_platforms, args.new, pil_image, pil_draw)
+    _generate_icons(cfg.root, targets, selected_platforms, args.new, pil_image, pil_draw)
 
     header("Verification")
-    all_ok = _verify_icons(cfg.root, selected_flavors, selected_platforms)
+    all_ok = _verify_icons(cfg.root, targets, selected_platforms)
 
     print()
     if all_ok:

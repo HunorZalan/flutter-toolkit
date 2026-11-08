@@ -42,6 +42,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "server":       ("ftk.commands.server_cmd",   "Start / stop / status of the FastAPI UI server"),
     "projects":     ("ftk.commands.projects_cmd", "Manage the multi-project registry"),
     "init":         ("ftk.commands.init_cmd",     "Create a starter ftk.yaml"),
+    "pipeline":     ("ftk.pipeline",              "Run several commands in sequence"),
 }
 
 ALIASES: dict[str, str] = {
@@ -131,7 +132,7 @@ def _resolve_config(globals_, needs_project_cfg):
 
 
 _TOGGLE_COMMANDS = frozenset((
-    "clean", "build", "info", "analyze", "test", "icons",
+    "clean", "build", "info", "analyze", "test", "icons", "codegen",
     "unused", "translations", "deploy", "backup", "sonar", "run",
 ))
 

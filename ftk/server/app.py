@@ -43,7 +43,7 @@ _PLATFORM_LABEL: dict[str, str] = {"win32": "Windows", "darwin": "macOS"}
 _PROMPT_TIMEOUT = 0.15
 _background_tasks: set[asyncio.Task] = set()
 MAX_RUNTIME = int(os.environ.get("FTK_TIMEOUT", os.environ.get("TOOLKIT_TIMEOUT", "3600")))
-
+_STARTED = time.monotonic()
 
 class _ProjectSelect(BaseModel):
     id: str
@@ -548,7 +548,7 @@ class _AppHandlers:
     def api_health(self) -> dict:
         return {
             "status": "ok",
-            "uptime": time.monotonic(),
+            "uptime": time.monotonic() - _STARTED,
             "project": self._state.cfg.root,
         }
 

@@ -93,10 +93,6 @@ def _create_windows_task(entry) -> bool:
         ["schtasks", "/Create", "/TN", task, "/XML", xml_path, "/F"],
         capture_output=True,
     )
-    try:
-        os.remove(xml_path)
-    except OSError:
-        pass
 
     if r.returncode != 0:
         # Likely needs admin - try to elevate via PowerShell
@@ -121,6 +117,10 @@ def _create_windows_task(entry) -> bool:
             err("Could not create scheduled task even with elevation.")
             info("Run install.bat as Administrator from your project directory.")
             return False
+    try:
+        os.remove(xml_path)
+    except OSError:
+        pass
 
     subprocess.run(["schtasks", "/Run", "/TN", task], capture_output=True)
     return True
